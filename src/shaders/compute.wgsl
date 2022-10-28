@@ -25,25 +25,42 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
   var vPos : vec2<f32> = particlesSrc[index].pos;
   var vVel : vec2<f32> = particlesSrc[index].vel;
 
-  var cVel : vec2<f32> = vec2<f32>(0.0, 0.0);
+  var aAccum : vec2<f32> = vec2<f32>(0.0, 0.0);
+  var i : u32 = 0u;
+  loop {
+    if (i >= total) {
+      break;
+    }
+    if (i == index) {
+      continue;
+    }
 
- // var i : u32 = 0u;
-//   loop {
-//     if (i >= total) {
-//       break;
-//     }
-//     if (i == index) {
-//       continue;
-//     }
-
-//     let pos = particlesSrc[i].pos;
+     let pos = particlesSrc[i].pos;
+     
+     let distance_vector: vec2<f32> = pos - vPos;
+     
 //     let vel = particlesSrc[i].vel;
+     var distance = pow(distance_vector, vec2<f32>(2.0, 2.0));
+     var distance_squared: f32 = distance.x + distance.y; 
+      if (sqrt(distance_squared) < 0.009109375) {
+         continue; 
+    }
+     var mag: f32 = params.G / (distance_squared);
+     var accel: vec2<f32> = (distance_vector / sqrt(distance_squared)) * mag;
 
-    
-//     continuing {
-//       i = i + 1u;
-//     }
-// //   }
+     aAccum = aAccum + accel;
+     
+     if(length(aAccum) < 0.0 ) {
+        vVel = vec2<f32>(0.0, 0.0);
+        break;
+     }
+     continuing {
+       i = i + 1u;
+     }
+  }
+
+  vVel = vVel + aAccum * params.dt; 
+  vPos = vPos + vVel * params.dt;
 //   if (cMassCount > 0) {
 //     cMass = cMass * (1.0 / f32(cMassCount)) - vPos;
 //   }
@@ -61,7 +78,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 //   // kinematic update
 //   vPos += vVel * params.dt;
 
-  vPos.x += 0.001;
+  //vPos.x += params.dt / 100.0;
   // Wrap around boundary
   if (vPos.x < -1.0) {
     vPos.x = 1.0;

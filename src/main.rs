@@ -7,14 +7,14 @@ use wgpu::util::DeviceExt;
 
 
 //number of particles in the simulation 
-const NUM_PARTICLES: u32 = 10;
+const NUM_PARTICLES: u32 = 67000;
 
 const PARTICLES_PER_GROUP: u32 = 64; 
 
 
 const PARAMS: [f32; 2] = [
-    0.001, //dt
-    1.0 //Gravitational constant
+    0.01, //dt
+    0.0000001//Gravitational constant
 ];
 
 
@@ -192,8 +192,7 @@ impl eden::Example for State {
         for particle_instance_chunk in initial_particle_data.chunks_mut(4) {
             particle_instance_chunk[0] = unif(); // posx
             particle_instance_chunk[1] = unif(); // posy
-            particle_instance_chunk[2] = unif() * 0.1; // velx
-            particle_instance_chunk[3] = unif() * 0.1; // vely
+           
         };
 
         println!("{:?}", initial_particle_data);

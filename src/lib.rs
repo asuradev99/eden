@@ -90,8 +90,16 @@ async fn setup<E: Example>(title: &str) -> Setup {
     };
 
     let event_loop = EventLoop::new();
-    let mut builder = winit::window::WindowBuilder::new();
-    builder = builder.with_title(title);
+    
+    let monitor = event_loop.primary_monitor().unwrap();
+    let video_mode = monitor.video_modes().next();
+    let size = video_mode.clone().map_or(winit::dpi::PhysicalSize::new(800, 600), |vm| vm.size());
+    let mut builder = winit::window::WindowBuilder::new()
+        .with_visible(true)
+        .with_title("The universe, with a heck of a lot of rounding errors")
+        .with_fullscreen(video_mode.map(|vm| winit::window::Fullscreen::Exclusive(vm)));
+        
+   
     #[cfg(windows_OFF)] // TODO
     {
         use winit::platform::windows::WindowBuilderExtWindows;
@@ -269,7 +277,7 @@ fn start<E: Example>(
             format: surface.get_supported_formats(&adapter)[0],
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::Fifo,
+            present_mode: wgpu::PresentMode::Mailbox,
             alpha_mode: surface.get_supported_alpha_modes(&adapter)[0],
     };
     surface.configure(&device, &config);
