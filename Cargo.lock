@@ -536,6 +536,7 @@ dependencies = [
  "cfg-if",
  "eframe",
  "egui",
+ "egui_demo_lib",
  "egui_wgpu_backend",
  "egui_winit_platform",
  "env_logger",
@@ -597,6 +598,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui_demo_lib"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c22edd72717f8eeeaa4fc0c8ba417d5a897781e4f164bfb19ac7ee6557bd11d"
+dependencies = [
+ "egui",
+ "egui_extras",
+ "enum-map",
+ "tracing",
+ "unicode_names2",
+]
+
+[[package]]
+name = "egui_extras"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f698f685bb0ad39e87109e2f695ded0bccde77d5d40bbf7590cb5561c1e3039d"
+dependencies = [
+ "egui",
+]
+
+[[package]]
 name = "egui_glow"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -639,6 +662,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9542a40106fdba943a055f418d1746a050e1a903a049b030c2b097d4686a33cf"
 dependencies = [
  "bytemuck",
+]
+
+[[package]]
+name = "enum-map"
+version = "2.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f5a56d54c8dd9b3ad34752ed197a4eb2a6601bc010808eb097a04a58ae4c43e1"
+dependencies = [
+ "enum-map-derive",
+ "serde",
+]
+
+[[package]]
+name = "enum-map-derive"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9045e2676cd5af83c3b167d917b0a5c90a4d8e266e2683d6631b235c457fc27"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -1979,6 +2023,12 @@ name = "unicode-xid"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f962df74c8c05a667b5ee8bcf162993134c104e96440b663c8daa176dc772d8c"
+
+[[package]]
+name = "unicode_names2"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "029df4cc8238cefc911704ff8fa210853a0f3bce2694d8f51181dd41ee0f3301"
 
 [[package]]
 name = "url"

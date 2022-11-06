@@ -2,14 +2,14 @@
 //use nanorand::{Rng, WyRand};
 use nanorand::{Rng, WyRand};
 use std::{borrow::Cow, mem};
-use eden::Example;
+use eden::{Example, Spawner};
 use wgpu::util::DeviceExt;
 
 
 //number of particles in the simulation 
-const NUM_PARTICLES: u32 = 1000;
+const NUM_PARTICLES: u32 = 20000;
 
-const PARTICLES_PER_GROUP: u32 = 64; 
+const PARTICLES_PER_GROUP: u32 = 2; 
 
 
 const PARAMS: [f32; 2] = [
@@ -275,6 +275,7 @@ impl eden::Example for State {
         view: &wgpu::TextureView,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
+        _spawner: &Spawner,
     ) {
         // create render pass descriptor and its color attachments
         let color_attachments = [Some(wgpu::RenderPassColorAttachment {

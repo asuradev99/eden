@@ -56,7 +56,7 @@ pub trait Example: 'static + Sized {
         view: &wgpu::TextureView,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        
+        spawner: &Spawner,
     );
 }
 
@@ -83,8 +83,11 @@ async fn setup<E: Example>(title: &str) -> Setup {
     let mut builder = winit::window::WindowBuilder::new()
         .with_visible(true)
         .with_title("The universe, with a heck of a lot of rounding errors")
-        .with_fullscreen(video_mode.map(|vm| winit::window::Fullscreen::Exclusive(vm)));
-        
+     //   .with_fullscreen(video_mode.map(|vm| winit::window::Fullscreen::Exclusive(vm)));
+        .with_inner_size(winit::dpi::PhysicalSize {
+            width: 1920, 
+            height: 1080
+        });
     let window = builder.build(&event_loop).unwrap();
 
 
@@ -158,12 +161,13 @@ fn start<E: Example>(
         queue,
     }: Setup,
 ) {
+    let spawner = Spawner::new();
     let mut config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface.get_supported_formats(&adapter)[0],
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::Mailbox,
+            present_mode: wgpu::PresentMode::Immediate,
             alpha_mode: surface.get_supported_alpha_modes(&adapter)[0],
     };
     surface.configure(&device, &config);
@@ -179,18 +183,21 @@ fn start<E: Example>(
     });
 
     let mut egui_rpass = RenderPass::new(&device, config.format, 1);
+    let mut test_ui = gui::Gui::default();
 
     let mut example = E::init(&config, &adapter, &device, &queue);
 
     let mut last_frame_inst = Instant::now();
     let (mut frame_count, mut accum_time) = (0, 0.0);
 
+    //let start_time = Instant::now();
     event_loop.run(move |event, _, control_flow| {
         let _ = (&instance, &adapter); // force ownership by the closure
-        platform.handle_event(&event); //ui handle event
+        //platform.handle_event(&event); //ui handle event
         *control_flow = ControlFlow::Poll;
         match event {
             event::Event::RedrawEventsCleared => {
+                spawner.run_until_stalled();
                 window.request_redraw();
             }
             event::Event::WindowEvent {
@@ -236,6 +243,7 @@ fn start<E: Example>(
                 }
             },
             event::Event::RedrawRequested(_) => {
+                //platform.update_time(start_time.elapsed().as_secs_f64());
                 {
                     accum_time += last_frame_inst.elapsed().as_secs_f32();
                     last_frame_inst = Instant::now();
@@ -262,58 +270,56 @@ fn start<E: Example>(
                 let view = frame
                     .texture
                     .create_view(&wgpu::TextureViewDescriptor::default());
-                //render ui
-                // Begin to draw the UI frame.
-                platform.begin_frame();
+                // //render ui
+                // // Begin to draw the UI frame.
+                // platform.begin_frame();
 
-                // Draw the demo application.
-                let mut test_ui = Gui::default();
-                test_ui.ui(&platform.context());
+                // // Draw the demo application.
+                // test_ui.ui(&platform.context());
 
-
-                // End the UI frame. We could now handle the output and draw the UI with the backend.
-                let full_output = platform.end_frame(Some(&window));
-                let paint_jobs = platform.context().tessellate(full_output.shapes);
+                // // End the UI frame. We could now handle the output and draw the UI with the backend.
+                // let full_output = platform.end_frame(Some(&window));
+                // let paint_jobs = platform.context().tessellate(full_output.shapes);
                 
-                //render UI on wgpu backend
-                let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("encoder"),
-                });
+                // //render UI on wgpu backend
+                // let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                //     label: Some("encoder"),
+                // });
 
-                // Upload all resources for the GPU.
-                let screen_descriptor = ScreenDescriptor {
-                    physical_width: size.width,
-                    physical_height: size.height,
-                    scale_factor: window.scale_factor() as f32,
-                };
-                let tdelta: egui::TexturesDelta = full_output.textures_delta;
-                egui_rpass
-                    .add_textures(&device, &queue, &tdelta)
-                    .expect("add texture ok");
-                egui_rpass.update_buffers(&device, &queue, &paint_jobs, &screen_descriptor);
+                // // Upload all resources for the GPU.
+                // let screen_descriptor = ScreenDescriptor {
+                //     physical_width: size.width,
+                //     physical_height: size.height,
+                //     scale_factor: window.scale_factor() as f32,
+                // };
+                // let tdelta: egui::TexturesDelta = full_output.textures_delta;
+                // egui_rpass
+                //     .add_textures(&device, &queue, &tdelta)
+                //     .expect("add texture ok");
+                // egui_rpass.update_buffers(&device, &queue, &paint_jobs, &screen_descriptor);
 
-                // Record all render passes.
-                egui_rpass
-                    .execute(
-                        &mut encoder,
-                        &view,
-                        &paint_jobs,
-                        &screen_descriptor,
-                        Some(wgpu::Color::BLACK),
-                    )
-                    .unwrap();
-                // Submit the commands.
-                queue.submit(std::iter::once(encoder.finish()));
+                // // Record all render passes.
+                // egui_rpass
+                //     .execute(
+                //         &mut encoder,
+                //         &view,
+                //         &paint_jobs,
+                //         &screen_descriptor,
+                //         Some(wgpu::Color::BLACK),
+                //     )
+                //     .unwrap();
+                // // Submit the commands.
+                // queue.submit(std::iter::once(encoder.finish()));
 
                 
-                example.render(&view, &device, &queue);
+                example.render(&view, &device, &queue, &spawner);
 
                 frame.present();
 
-                // Redraw egui
-                egui_rpass
-                    .remove_textures(tdelta)
-                    .expect("remove texture ok");
+                // // Redraw egui
+                // egui_rpass
+                //     .remove_textures(tdelta)
+                //     .expect("remove texture ok");
 
             }
             _ => {}
@@ -325,4 +331,27 @@ fn start<E: Example>(
 pub fn run<E: Example>(title: &str) {
     let setup = pollster::block_on(setup::<E>(title));
     start::<E>(setup);
+}
+
+
+
+pub struct Spawner<'a> {
+    executor: async_executor::LocalExecutor<'a>,
+}
+
+impl<'a> Spawner<'a> {
+    fn new() -> Self {
+        Self {
+            executor: async_executor::LocalExecutor::new(),
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn spawn_local(&self, future: impl Future<Output = ()> + 'a) {
+        self.executor.spawn(future).detach();
+    }
+
+    fn run_until_stalled(&self) {
+        while self.executor.try_tick() {}
+    }
 }
