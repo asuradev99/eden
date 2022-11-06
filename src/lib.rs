@@ -7,7 +7,8 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
 };
 
-
+use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
+use egui_winit_platform::{Platform, PlatformDescriptor};
 
 #[allow(dead_code)]
 pub enum ShaderStage {
@@ -15,6 +16,10 @@ pub enum ShaderStage {
     Fragment,
     Compute,
 }
+
+mod gui;
+use gui::Gui;
+use eframe::App;
 
 pub trait Example: 'static + Sized {
     fn optional_features() -> wgpu::Features {
@@ -95,6 +100,7 @@ async fn setup<E: Example>(title: &str) -> Setup {
 
         (size, surface)
     };
+
     let adapter =
         wgpu::util::initialize_adapter_from_env_or_default(&instance, backend, Some(&surface))
             .await
@@ -126,6 +132,7 @@ async fn setup<E: Example>(title: &str) -> Setup {
         .await
         .expect("Unable to find a suitable GPU adapter!");
 
+    
     Setup {
         window,
         event_loop,
@@ -161,6 +168,18 @@ fn start<E: Example>(
     };
     surface.configure(&device, &config);
     
+
+    //setup ui
+    let mut platform = Platform::new(PlatformDescriptor {
+        physical_width: size.width as u32,
+        physical_height: size.height as u32,
+        scale_factor: window.scale_factor(),
+        font_definitions: egui::FontDefinitions::default(),
+        style: Default::default(),
+    });
+
+    let mut egui_rpass = RenderPass::new(&device, config.format, 1);
+
     let mut example = E::init(&config, &adapter, &device, &queue);
 
     let mut last_frame_inst = Instant::now();
@@ -168,6 +187,7 @@ fn start<E: Example>(
 
     event_loop.run(move |event, _, control_flow| {
         let _ = (&instance, &adapter); // force ownership by the closure
+        platform.handle_event(&event); //ui handle event
         *control_flow = ControlFlow::Poll;
         match event {
             event::Event::RedrawEventsCleared => {
@@ -242,10 +262,58 @@ fn start<E: Example>(
                 let view = frame
                     .texture
                     .create_view(&wgpu::TextureViewDescriptor::default());
+                //render ui
+                // Begin to draw the UI frame.
+                platform.begin_frame();
 
+                // Draw the demo application.
+                let mut test_ui = Gui::default();
+                test_ui.ui(&platform.context());
+
+
+                // End the UI frame. We could now handle the output and draw the UI with the backend.
+                let full_output = platform.end_frame(Some(&window));
+                let paint_jobs = platform.context().tessellate(full_output.shapes);
+                
+                //render UI on wgpu backend
+                let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("encoder"),
+                });
+
+                // Upload all resources for the GPU.
+                let screen_descriptor = ScreenDescriptor {
+                    physical_width: size.width,
+                    physical_height: size.height,
+                    scale_factor: window.scale_factor() as f32,
+                };
+                let tdelta: egui::TexturesDelta = full_output.textures_delta;
+                egui_rpass
+                    .add_textures(&device, &queue, &tdelta)
+                    .expect("add texture ok");
+                egui_rpass.update_buffers(&device, &queue, &paint_jobs, &screen_descriptor);
+
+                // Record all render passes.
+                egui_rpass
+                    .execute(
+                        &mut encoder,
+                        &view,
+                        &paint_jobs,
+                        &screen_descriptor,
+                        Some(wgpu::Color::BLACK),
+                    )
+                    .unwrap();
+                // Submit the commands.
+                queue.submit(std::iter::once(encoder.finish()));
+
+                
                 example.render(&view, &device, &queue);
 
                 frame.present();
+
+                // Redraw egui
+                egui_rpass
+                    .remove_textures(tdelta)
+                    .expect("remove texture ok");
 
             }
             _ => {}
