@@ -7,7 +7,7 @@ use wgpu::util::DeviceExt;
 
 
 //number of particles in the simulation 
-const NUM_PARTICLES: u32 = 60000;
+const NUM_PARTICLES: u32 = 100;
 
 const PARTICLES_PER_GROUP: u32 = 6; 
 

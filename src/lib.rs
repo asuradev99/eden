@@ -10,8 +10,6 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
 };
 
-use egui_winit_platform::{Platform, PlatformDescriptor};
-use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 #[allow(dead_code)]
 pub fn cast_slice<T>(data: &[T]) -> &[u8] {
     use std::{mem::size_of, slice::from_raw_parts};
@@ -25,10 +23,7 @@ pub enum ShaderStage {
     Fragment,
     Compute,
 }
-mod gui;
-use gui::Gui;
-use eframe::App;
-
+mod gui; 
 pub trait Example: 'static + Sized {
     fn optional_features() -> wgpu::Features {
         wgpu::Features::empty()
@@ -95,10 +90,10 @@ async fn setup<E: Example>(title: &str) -> Setup {
 
     let event_loop = EventLoop::new();
     
-    let monitor = event_loop.primary_monitor().unwrap();
-    let video_mode = monitor.video_modes().next();
-    let size = video_mode.clone().map_or(winit::dpi::PhysicalSize::new(800, 600), |vm| vm.size());
-    let mut builder = winit::window::WindowBuilder::new()
+   // let monitor = event_loop.primary_monitor().unwrap();
+   // let video_mode = monitor.video_modes().next();
+   // let size = video_mode.clone().map_or(winit::dpi::PhysicalSize::new(800, 600), |vm| vm.size());
+    let builder = winit::window::WindowBuilder::new()
         .with_visible(true)
         .with_title("The universe, with a heck of a lot of rounding errors")
         //   .with_fullscreen(video_mode.map(|vm| winit::window::Fullscreen::Exclusive(vm)));
@@ -290,17 +285,8 @@ fn start<E: Example>(
     surface.configure(&device, &config);
     
 
-    //setup ui
-    let mut platform = Platform::new(PlatformDescriptor {
-        physical_width: size.width as u32,
-        physical_height: size.height as u32,
-        scale_factor: window.scale_factor(),
-        font_definitions: egui::FontDefinitions::default(),
-        style: Default::default(),
-    });
 
-    let mut egui_rpass = RenderPass::new(&device, config.format, 1);
-    let mut test_ui = gui::Gui::default();
+    let mut test_ui = gui::Gui::new(&window, &device, &config);
     log::info!("Initializing the example...");
     let mut example = E::init(&config, &adapter, &device, &queue);
 
@@ -397,53 +383,13 @@ fn start<E: Example>(
                     .texture
                     .create_view(&wgpu::TextureViewDescriptor::default());
                       //render ui
-                // Begin to draw the UI frame.
-                platform.begin_frame();
-
-                // Draw the demo application.
-                test_ui.ui(&platform.context());
-
-                // End the UI frame. We could now handle the output and draw the UI with the backend.
-                let full_output = platform.end_frame(Some(&window));
-                let paint_jobs = platform.context().tessellate(full_output.shapes);
-
-                //render UI on wgpu backend
-                let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("encoder"),
-                });
-
-                // Upload all resources for the GPU.
-                let screen_descriptor = ScreenDescriptor {
-                    physical_width: size.width,
-                    physical_height: size.height,
-                    scale_factor: window.scale_factor() as f32,
-                };
-                let tdelta: egui::TexturesDelta = full_output.textures_delta;
-                egui_rpass
-                    .add_textures(&device, &queue, &tdelta)
-                    .expect("add texture ok");
-                egui_rpass.update_buffers(&device, &queue, &paint_jobs, &screen_descriptor);
-
-                // Record all render passes.
-                egui_rpass
-                    .execute(
-                        &mut encoder,
-                        &view,
-                        &paint_jobs,
-                        &screen_descriptor,
-                        Some(wgpu::Color::BLACK),
-                    )
-                    .unwrap();
-                // Submit the commands.
-                queue.submit(std::iter::once(encoder.finish()));
+                
+                test_ui.render(&window, &device, &view, &queue);
                 example.render(&view, &device, &queue, &spawner);
 
                 frame.present();
                 
-                // Redraw egui
-                egui_rpass
-                    .remove_textures(tdelta)
-                    .expect("remove texture ok");
+                test_ui.cleanup();
                 #[cfg(target_arch = "wasm32")]
                 {
                     if let Some(offscreen_canvas_setup) = &offscreen_canvas_setup {
