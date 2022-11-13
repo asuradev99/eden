@@ -2,19 +2,19 @@
 //use nanorand::{Rng, WyRand};
 use nanorand::{Rng, WyRand};
 use std::{borrow::Cow, mem};
-use eden::Example;
+
 use wgpu::util::DeviceExt;
 
 
 //number of particles in the simulation 
-const NUM_PARTICLES: u32 = 67000;
+const NUM_PARTICLES: u32 = 60000;
 
-const PARTICLES_PER_GROUP: u32 = 64; 
+const PARTICLES_PER_GROUP: u32 = 6; 
 
 
 const PARAMS: [f32; 2] = [
     0.01, //dt
-    0.0000001//Gravitational constant
+    0.00001//Gravitational constant
 ];
 
 
