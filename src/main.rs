@@ -7,7 +7,7 @@ use wgpu::util::DeviceExt;
 
 
 //number of particles in the simulation 
-const NUM_PARTICLES: u32 = 100;
+const NUM_PARTICLES: u32 = 60000;
 
 const PARTICLES_PER_GROUP: u32 = 6; 
 
@@ -65,7 +65,6 @@ impl eden::Example for State {
         });
 
         //set up uniform buffer to store global parameters
-
         let sim_param_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Parameter Buffer"),
             contents: bytemuck::cast_slice(&PARAMS),
@@ -184,10 +183,10 @@ impl eden::Example for State {
 
 
         // buffer for all particles data of type [(posx,posy,velx,vely),...]
-        let mut initial_particle_data = vec![0.0f32; (4 * NUM_PARTICLES) as usize];
+        let mut initial_particle_data = vec![0.0f32; (4 * (NUM_PARTICLES + 1)) as usize];
         
         //generate random pos and vel
-        let mut rng = WyRand::new_seed(42);
+        let mut rng = WyRand::new_seed(10);
         let mut unif = || rng.generate::<f32>() * 2f32 - 1f32; // Generate a num (-1, 1)
         for particle_instance_chunk in initial_particle_data.chunks_mut(4) {
             particle_instance_chunk[0] = unif(); // posx
@@ -298,7 +297,7 @@ impl eden::Example for State {
         let mut command_encoder =
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-        command_encoder.push_debug_group("compute boid movement");
+        //compute pass
         {
             // compute pass
             let mut cpass =
@@ -307,9 +306,8 @@ impl eden::Example for State {
             cpass.set_bind_group(0, &self.particle_bind_groups[self.frame_num % 2], &[]);
             cpass.dispatch_workgroups(self.work_group_count, 1, 1);
         }
-        command_encoder.pop_debug_group();
 
-        command_encoder.push_debug_group("render boids");
+        //render pass
         {
             // render pass
             let mut rpass = command_encoder.begin_render_pass(&render_pass_descriptor);
@@ -319,7 +317,6 @@ impl eden::Example for State {
             // the three instance-local vertices ????
             rpass.draw(0..1, 0..NUM_PARTICLES);
         }
-        command_encoder.pop_debug_group();
 
         // update frame count
         self.frame_num += 1;

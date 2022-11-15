@@ -8,7 +8,7 @@ use winit::window::Window;
 use wgpu::{Device, SurfaceConfiguration, TextureView};
 
 pub struct Gui {
-    platform: Platform,
+    pub platform: Platform,
     egui_rpass: egui_wgpu_backend::RenderPass,
     tdelta: egui::TexturesDelta
 }
@@ -31,12 +31,32 @@ impl Gui {
         }
     }
     pub fn ui(&mut self) {
-        egui::CentralPanel::default().show(&self.platform.context(), |ui| {
-            ui.heading("My egui Application");
-            ui.horizontal(|ui| {
-                ui.label("Your name: s ");
+        // egui::CentralPanel::default().show(&self.platform.context(), |ui| {
+        //     ui.heading("My egui Application");
+        //     ui.horizontal(|ui| {
+        //         ui.label("Your name: s ");
+        //     });
+        // });
+        let mut open = true;
+        egui::Window::new("📤 Output Events")
+            .open(&mut open)
+            .resizable(true)
+            .default_width(520.0)
+            .show(&self.platform.context(), |ui| {
+                ui.label(
+                    "Recent output events from egui. \
+            These are emitted when you interact with widgets, or move focus between them with TAB. \
+            They can be hooked up to a screen reader on supported platforms.",
+                );
+
+                ui.separator();
+
+                egui::ScrollArea::vertical()
+                    .stick_to_bottom(true)
+                    .show(ui, |ui| {
+                        
+                    });
             });
-        });
     }
 
     pub fn render(&mut self, window: &Window, device: &Device, view: &TextureView, queue: &wgpu::Queue) {

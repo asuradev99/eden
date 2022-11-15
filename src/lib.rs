@@ -297,6 +297,8 @@ fn start<E: Example>(
 
     log::info!("Entering render loop...");
     event_loop.run(move |event, _, control_flow| {
+
+        test_ui.platform.handle_event(&event);
         let _ = (&instance, &adapter); // force ownership by the closure
         *control_flow = if cfg!(feature = "metal-auto-capture") {
             ControlFlow::Exit
