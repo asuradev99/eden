@@ -94,7 +94,7 @@ impl Gui {
                 &view,
                 &paint_jobs,
                 &screen_descriptor,
-                Some(wgpu::Color::BLACK),
+                None,
             )
             .unwrap();
         // Submit the commands.
