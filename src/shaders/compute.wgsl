@@ -43,7 +43,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
      var distance = pow(distance_vector, vec2<f32>(2.0, 2.0));
      var distance_squared: f32 = distance.x + distance.y; 
      var dist = sqrt(distance_squared);
-      if (dist < 0.009109375) {
+      if (dist < 0.009109375 ) {
          continue; 
     }
      var mag: f32 = params.G / (distance_squared);
@@ -62,6 +62,8 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
   vVel = vVel + aAccum * params.dt; 
   vPos = vPos + vVel * params.dt;
+//     vPos.x = vPos.x + 0.001;
+
 //   if (cMassCount > 0) {
 //     cMass = cMass * (1.0 / f32(cMassCount)) - vPos;
 //   }

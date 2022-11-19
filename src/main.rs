@@ -9,7 +9,7 @@ use wgpu::util::DeviceExt;
 //number of particles in the simulation 
 const NUM_PARTICLES: u32 = 60000;
 
-const PARTICLES_PER_GROUP: u32 = 6; 
+const PARTICLES_PER_GROUP: u32 = 1; 
 
 
 const PARAMS: [f32; 2] = [
@@ -183,7 +183,7 @@ impl eden::Example for State {
 
 
         // buffer for all particles data of type [(posx,posy,velx,vely),...]
-        let mut initial_particle_data = vec![0.0f32; (4 * (NUM_PARTICLES + 1)) as usize];
+        let mut initial_particle_data = vec![0.0f32; (4 * (NUM_PARTICLES)) as usize];
         
         //generate random pos and vel
         let mut rng = WyRand::new_seed(10);
