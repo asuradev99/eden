@@ -316,7 +316,7 @@ fn start(
                     .create_view(&wgpu::TextureViewDescriptor::default());
                       //render ui
 
-                example.render(&view, &device, &queue);
+                example.render(&view, &device, &queue, &spawner);
                 test_ui.render(&window, &device, &view, &queue);
 
                 frame.present();
