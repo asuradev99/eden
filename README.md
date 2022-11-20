@@ -13,8 +13,12 @@ Currently WIP
   - Display world coordinates, not clip coordinates
   - Add scroll zoom and right-click drag translation (rotation in 3d)
 
+
 - Simulation
   - Coloumb's Law
   - Collisions (possible gas simulation)
   - Boundary condition handling
   - Lighting effects
+  - Display each particle as a shape / circle
+
+

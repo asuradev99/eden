@@ -6,8 +6,8 @@ use std::time::Instant;
 #[cfg(target_arch = "wasm32")]
 use web_sys::{ImageBitmapRenderingContext, OffscreenCanvas};
 use winit::{
-    event::{self, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
+    event::{self, WindowEvent, MouseButton, ElementState},
+    event_loop::{ControlFlow, EventLoop}, dpi::PhysicalPosition,
 };
 
 #[allow(dead_code)]
@@ -24,44 +24,8 @@ pub enum ShaderStage {
     Compute,
 }
 mod gui; 
-pub trait Example: 'static + Sized {
-    fn optional_features() -> wgpu::Features {
-        wgpu::Features::empty()
-    }
-    fn required_features() -> wgpu::Features {
-        wgpu::Features::empty()
-    }
-    fn required_downlevel_capabilities() -> wgpu::DownlevelCapabilities {
-        wgpu::DownlevelCapabilities {
-            flags: wgpu::DownlevelFlags::empty(),
-            shader_model: wgpu::ShaderModel::Sm5,
-            ..wgpu::DownlevelCapabilities::default()
-        }
-    }
-    fn required_limits() -> wgpu::Limits {
-        wgpu::Limits::downlevel_webgl2_defaults() // These downlevel limits will allow the code to run on all possible hardware
-    }
-    fn init(
-        config: &wgpu::SurfaceConfiguration,
-        adapter: &wgpu::Adapter,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-    ) -> Self;
-    fn resize(
-        &mut self,
-        config: &wgpu::SurfaceConfiguration,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-    );
-    fn update(&mut self, event: WindowEvent);
-    fn render(
-        &mut self,
-        view: &wgpu::TextureView,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        spawner: &Spawner,
-    );
-}
+mod state; 
+
 
 struct Setup {
     window: winit::window::Window,
@@ -82,7 +46,7 @@ struct OffscreenCanvasSetup {
     bitmap_renderer: ImageBitmapRenderingContext,
 }
 
-async fn setup<E: Example>(title: &str) -> Setup {
+async fn setup(title: &str) -> Setup {
     #[cfg(not(target_arch = "wasm32"))]
     {
         env_logger::init();
@@ -196,32 +160,32 @@ async fn setup<E: Example>(title: &str) -> Setup {
         println!("Using {} ({:?})", adapter_info.name, adapter_info.backend);
     }
 
-    let optional_features = E::optional_features();
-    let required_features = E::required_features();
+    let optional_features = wgpu::Features::empty();
+    let required_features = wgpu::Features::empty();
     let adapter_features = adapter.features();
-    assert!(
-        adapter_features.contains(required_features),
-        "Adapter does not support required features for this example: {:?}",
-        required_features - adapter_features
-    );
+    // assert!(
+    //     adapter_features.contains(required_features),
+    //     "Adapter does not support required features for this example: {:?}",
+    //     required_features - adapter_features
+    // );
 
-    let required_downlevel_capabilities = E::required_downlevel_capabilities();
-    let downlevel_capabilities = adapter.get_downlevel_capabilities();
-    assert!(
-        downlevel_capabilities.shader_model >= required_downlevel_capabilities.shader_model,
-        "Adapter does not support the minimum shader model required to run this example: {:?}",
-        required_downlevel_capabilities.shader_model
-    );
-    assert!(
-        downlevel_capabilities
-            .flags
-            .contains(required_downlevel_capabilities.flags),
-        "Adapter does not support the downlevel capabilities required to run this example: {:?}",
-        required_downlevel_capabilities.flags - downlevel_capabilities.flags
-    );
+    // let required_downlevel_capabilities = E::required_downlevel_capabilities();
+    // let downlevel_capabilities = adapter.get_downlevel_capabilities();
+    // assert!(
+    //     downlevel_capabilities.shader_model >= required_downlevel_capabilities.shader_model,
+    //     "Adapter does not support the minimum shader model required to run this example: {:?}",
+    //     required_downlevel_capabilities.shader_model
+    // );
+    // assert!(
+    //     downlevel_capabilities
+    //         .flags
+    //         .contains(required_downlevel_capabilities.flags),
+    //     "Adapter does not support the downlevel capabilities required to run this example: {:?}",
+    //     required_downlevel_capabilities.flags - downlevel_capabilities.flags
+    // );
 
     // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the surface.
-    let needed_limits = E::required_limits().using_resolution(adapter.limits());
+    let needed_limits = state::State::required_limits().using_resolution(adapter.limits());
 
     let trace_dir = std::env::var("WGPU_TRACE");
     let (device, queue) = adapter
@@ -236,6 +200,7 @@ async fn setup<E: Example>(title: &str) -> Setup {
         .await
         .expect("Unable to find a suitable GPU adapter!");
 
+    
     Setup {
         window,
         event_loop,
@@ -250,7 +215,7 @@ async fn setup<E: Example>(title: &str) -> Setup {
     }
 }
 
-fn start<E: Example>(
+fn start(
     #[cfg(not(target_arch = "wasm32"))] Setup {
         window,
         event_loop,
@@ -279,7 +244,7 @@ fn start<E: Example>(
             format: surface.get_supported_formats(&adapter)[0],
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::Immediate,
+            present_mode: wgpu::PresentMode::Fifo,
             alpha_mode: surface.get_supported_alpha_modes(&adapter)[0],
     };
     surface.configure(&device, &config);
@@ -288,7 +253,7 @@ fn start<E: Example>(
 
     let mut test_ui = gui::Gui::new(&window, &device, &config);
     log::info!("Initializing the example...");
-    let mut example = E::init(&config, &adapter, &device, &queue);
+    let mut example = state::State::init(&config, &adapter, &device, &queue);
 
     #[cfg(not(target_arch = "wasm32"))]
     let mut last_frame_inst = Instant::now();
@@ -296,6 +261,10 @@ fn start<E: Example>(
     let (mut frame_count, mut accum_time) = (0, 0.0);
 
     log::info!("Entering render loop...");
+
+    let mut mouseState: bool = false;
+    let mut lastMousePosition: PhysicalPosition<f64> = PhysicalPosition { x: -1.0, y: -1.0 };
+
     event_loop.run(move |event, _, control_flow| {
 
         test_ui.platform.handle_event(&event);
@@ -351,8 +320,56 @@ fn start<E: Example>(
                     ..
                 } => {
                     //println!("{:#?}", instance.generate_report());
-                   example = E::init(&config, &adapter, &device, &queue);
+                   example = state::State::init(&config, &adapter, &device, &queue);
                 }
+
+                WindowEvent::MouseWheel { delta, .. } => {
+                    match delta {
+                        event::MouseScrollDelta::LineDelta(x, y) => {
+                            example.camera.zoom *= f32::powf(1.25, y);
+                            //println!("New camera zoom: {:?}", example.camera.zoom);
+                            queue.write_buffer(&(example.camera_uniform_buffer), 0, bytemuck::cast_slice(&[example.camera.to_slice()]));
+                        }
+                        _ => {}
+                    }
+                }
+                WindowEvent::MouseInput { device_id, state,  button, modifiers } => {
+                    match button {
+                        MouseButton::Right => {
+                            match state {
+                                ElementState::Pressed => {mouseState = true;                     println!("{}", mouseState);}
+                                ElementState::Released => {mouseState = false; 
+                                    lastMousePosition = PhysicalPosition::<f64>{x: -1.0, y: 0.0};      
+                                                 println!("{}", mouseState);
+                                                }
+                            }
+                        }
+                        _ => {}
+                    }
+
+                }
+                WindowEvent::CursorMoved { device_id, position, modifiers } => {
+                    if(mouseState) {
+                        if(lastMousePosition.x != -1.0) {
+                            let deltaPosition = PhysicalPosition::<f64>{
+                                x: (position.x - lastMousePosition.x) / (config.width as f64), 
+                                y: (position.y - lastMousePosition.y) / (config.height as f64),
+                            };
+
+                            example.camera.x -= (deltaPosition.x as f32 / example.camera.zoom ) * 2.0;
+                            example.camera.y += (deltaPosition.y as f32 / example.camera.zoom) * 2.0;
+
+                            queue.write_buffer(&(example.camera_uniform_buffer), 0, bytemuck::cast_slice(&[example.camera.to_slice()]));
+
+                            lastMousePosition = position;
+                            println!("{:?}", deltaPosition);
+
+                        } else {
+                            lastMousePosition = position;
+                        }
+                    }
+                    
+                }  
                 _ => {
                     example.update(event);
                 }
@@ -364,10 +381,10 @@ fn start<E: Example>(
                     last_frame_inst = Instant::now();
                     frame_count += 1;
                     if frame_count == 100 {
-                        println!(
-                            "Avg frame time {}ms",
-                            accum_time * 1000.0 / frame_count as f32
-                        );
+                        // println!(
+                        //     "Avg frame time {}ms",
+                        //     accum_time * 1000.0 / frame_count as f32
+                        // );
                         accum_time = 0.0;
                         frame_count = 0;
                     }
@@ -387,7 +404,7 @@ fn start<E: Example>(
                     .create_view(&wgpu::TextureViewDescriptor::default());
                       //render ui
 
-                example.render(&view, &device, &queue, &spawner);
+                example.render(&view, &device, &queue);
                 test_ui.render(&window, &device, &view, &queue);
 
                 frame.present();
@@ -452,19 +469,19 @@ impl Spawner {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn run<E: Example>(title: &str) {
-    let setup = pollster::block_on(setup::<E>(title));
-    start::<E>(setup);
+pub fn run(title: &str) {
+    let setup = pollster::block_on(setup(title));
+    start(setup);
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn run<E: Example>(title: &str) {
+pub fn run(title: &str) {
     use wasm_bindgen::{prelude::*, JsCast};
 
     let title = title.to_owned();
     wasm_bindgen_futures::spawn_local(async move {
-        let setup = setup::<E>(&title).await;
-        let start_closure = Closure::once_into_js(move || start::<E>(setup));
+        let setup = setup(&title).await;
+        let start_closure = Closure::once_into_js(move || start(setup));
 
         // make sure to handle JS exceptions thrown inside start.
         // Otherwise wasm_bindgen_futures Queue would break and never handle any tasks again.

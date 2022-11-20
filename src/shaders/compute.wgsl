@@ -81,20 +81,20 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 //   // kinematic update
 //   vPos += vVel * params.dt;
 
-  //vPos.x += params.dt / 100.0;
-  //Wrap around boundary
-  if (vPos.x < -1.0) {
-    vPos.x = 1.0;
-  }
-  if (vPos.x > 1.0) {
-    vPos.x = -1.0;
-  }
-  if (vPos.y < -1.0) {
-    vPos.y = 1.0;
-  }
-  if (vPos.y > 1.0) {
-    vPos.y = -1.0;
-  }
+  // //vPos.x += params.dt / 100.0;
+  // //Wrap around boundary
+  // if (vPos.x < -1.0) {
+  //   vPos.x = 1.0;
+  // }
+  // if (vPos.x > 1.0) {
+  //   vPos.x = -1.0;
+  // }
+  // if (vPos.y < -1.0) {
+  //   vPos.y = 1.0;
+  // }
+  // if (vPos.y > 1.0) {
+  //   vPos.y = -1.0;
+  // }
 
   // Write back
   particlesDst[index] = Particle(vPos, vVel);
