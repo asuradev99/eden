@@ -194,7 +194,7 @@ impl eden::Example for State {
            
         };
 
-        println!("{:?}", initial_particle_data);
+        //println!("{:?}", initial_particle_data);
         // creates two buffers of particle data each of size NUM_PARTICLES
         // the two buffers alternate as dst and src for each frame
 

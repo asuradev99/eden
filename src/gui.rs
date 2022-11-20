@@ -50,7 +50,9 @@ impl Gui {
                 );
 
                 ui.separator();
-
+                if ui.add(egui::Button::new("Click me")).clicked() {
+                    println!("Hello World");
+                }
                 egui::ScrollArea::vertical()
                     .stick_to_bottom(true)
                     .show(ui, |ui| {

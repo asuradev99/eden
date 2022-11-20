@@ -350,7 +350,8 @@ fn start<E: Example>(
                         },
                     ..
                 } => {
-                    println!("{:#?}", instance.generate_report());
+                    //println!("{:#?}", instance.generate_report());
+                   example = E::init(&config, &adapter, &device, &queue);
                 }
                 _ => {
                     example.update(event);
