@@ -415,6 +415,10 @@ fn start(
                 frame.present();
                 
                 test_ui.cleanup();
+
+                if(test_ui.state == gui::OutputState::ReloadRequired) {
+                    example = state::State::init(params, &config, &adapter, &device, &queue);
+                }
                 #[cfg(target_arch = "wasm32")]
                 {
                     if let Some(offscreen_canvas_setup) = &offscreen_canvas_setup {

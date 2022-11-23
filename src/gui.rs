@@ -6,11 +6,16 @@ use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 use winit::window::Window;
 
 use wgpu::{Device, SurfaceConfiguration, TextureView};
-
+#[derive(PartialEq)]
+pub enum OutputState {
+    ReloadRequired, 
+    None,
+}
 pub struct Gui {
     pub platform: Platform,
     egui_rpass: egui_wgpu_backend::RenderPass,
-    tdelta: egui::TexturesDelta
+    tdelta: egui::TexturesDelta,
+    pub state: OutputState,
 }
 
 impl Gui {
@@ -24,10 +29,12 @@ impl Gui {
             style: Default::default(),
         }); 
         let tdelta = egui::TexturesDelta::default();
+        let state = OutputState::None;
         Self {
            platform, 
            egui_rpass,
-           tdelta
+           tdelta,
+           state
         }
     }
     pub fn ui(&mut self) {
@@ -38,6 +45,7 @@ impl Gui {
         //     });
         // });
         let mut open = true;
+        self.state = OutputState::None;
         egui::Window::new("📤 Output Events")
             .open(&mut open)
             .resizable(true)
@@ -51,7 +59,7 @@ impl Gui {
 
                 ui.separator();
                 if ui.add(egui::Button::new("Click me")).clicked() {
-                    println!("Hello World");
+                    self.state = OutputState::ReloadRequired;
                 }
                 egui::ScrollArea::vertical()
                     .stick_to_bottom(true)
