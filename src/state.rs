@@ -6,10 +6,6 @@ use std::{borrow::Cow, mem};
 use wgpu::util::DeviceExt;
 
 
-//number of particles in the simulation 
-const NUM_PARTICLES: u32 = 100;
-
-const PARTICLES_PER_GROUP: u32 = 1; 
 
 #[derive(Debug, Copy, Clone)]
 pub struct Camera {
@@ -36,10 +32,33 @@ impl Camera {
     }
 }
 
-const PARAMS: [f32; 2] = [
-   0.01, //dt
-    0.1//Gravitational constant
-];
+#[derive(Debug, Copy, Clone)]
+pub struct Params {
+    pub g: f32, 
+    pub dt: f32,
+    pub num_particles: u32,
+}
+
+impl Params {
+    pub fn new() -> Self {
+        Params {
+            g: 0.01,
+            dt: 0.1, 
+            num_particles: 1000,
+        }
+    }
+    pub fn to_slice(&self) -> [f32; 2] {
+        [
+            self.g, 
+            self.dt, 
+        ]
+    }
+}
+
+// const PARAMS: [f32; 2] = [
+//     0.001, //dt
+//     0.01//Gravitational constant
+// ];
 
 
 /// Example struct holds references to wgpu resources and frame persistent data
@@ -52,6 +71,7 @@ pub struct State {
     frame_num: usize,
     pub camera: Camera,
     pub camera_uniform_buffer: wgpu::Buffer, 
+    pub params: Params,
     camera_bind_group: wgpu::BindGroup,
 
 }
@@ -75,11 +95,17 @@ impl State {
     }
 
     pub fn init(
+        params: Params,
         config: &wgpu::SurfaceConfiguration,
         _adapter: &wgpu::Adapter,
         device: &wgpu::Device,
         _queue: &wgpu::Queue,
     ) -> Self {
+
+        //create parameters 
+        let params = params; 
+        let params_slice = params.to_slice();
+
         //initialize compute shader module
         let compute_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
@@ -95,7 +121,7 @@ impl State {
         //set up uniform buffer to store global parameters
         let sim_param_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Parameter Buffer"),
-            contents: bytemuck::cast_slice(&PARAMS),
+            contents: bytemuck::cast_slice(&(params_slice)),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
@@ -121,7 +147,7 @@ impl State {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false, 
                         min_binding_size: wgpu::BufferSize::new(
-                            (PARAMS.len() * mem::size_of::<f32>()) as _,
+                            (params_slice.len() * mem::size_of::<f32>()) as _,
                         )
                     },
                     count: None,
@@ -134,7 +160,7 @@ impl State {
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Storage {read_only: true},
                         has_dynamic_offset: false, 
-                        min_binding_size: wgpu::BufferSize::new((NUM_PARTICLES * 16) as _), //CHANGE SIZE IF ISSUES
+                        min_binding_size: wgpu::BufferSize::new((params.num_particles * 16) as _), //CHANGE SIZE IF ISSUES
                     },
                     count: None,
                 },
@@ -146,7 +172,7 @@ impl State {
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Storage {read_only: false},
                         has_dynamic_offset: false, 
-                        min_binding_size: wgpu::BufferSize::new((NUM_PARTICLES * 16) as _),
+                        min_binding_size: wgpu::BufferSize::new((params.num_particles * 16) as _),
                     },
                     count: None,
                 },
@@ -239,7 +265,7 @@ impl State {
 
 
         // buffer for all particles data of type [(posx,posy,velx,vely),...]
-        let mut initial_particle_data = vec![0.0f32; (4 * (NUM_PARTICLES)) as usize];
+        let mut initial_particle_data = vec![0.0f32; (4 * (params.num_particles)) as usize];
         
         //generate random pos and vel
         let mut rng = rand::thread_rng();
@@ -307,8 +333,7 @@ impl State {
         
         
         // calculates number of work groups from PARTICLES_PER_GROUP constant
-        let work_group_count =
-            ((NUM_PARTICLES as f32) / (PARTICLES_PER_GROUP as f32)).ceil() as u32;
+        let work_group_count = u32::min(params.num_particles, 65535);
 
         // returns Example struct and No encoder commands
 
@@ -321,6 +346,7 @@ impl State {
             frame_num: 0,
             camera,
             camera_uniform_buffer, 
+            params, 
             camera_bind_group
         }
 
@@ -387,7 +413,7 @@ impl State {
             // render dst particles
             rpass.set_vertex_buffer(0, self.particle_buffers[(self.frame_num + 1) % 2].slice(..));
             // the three instance-local vertices ????
-            rpass.draw(0..1, 0..NUM_PARTICLES );
+            rpass.draw(0..1, 0..self.params.num_particles );
         }
 
         // update frame count

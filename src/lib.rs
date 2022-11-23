@@ -10,6 +10,8 @@ use winit::{
     event_loop::{ControlFlow, EventLoop}, dpi::PhysicalPosition,
 };
 
+use crate::state::Params;
+
 #[allow(dead_code)]
 pub fn cast_slice<T>(data: &[T]) -> &[u8] {
     use std::{mem::size_of, slice::from_raw_parts};
@@ -244,7 +246,7 @@ fn start(
             format: surface.get_supported_formats(&adapter)[0],
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::Immediate,
+            present_mode: wgpu::PresentMode::Fifo,
             alpha_mode: surface.get_supported_alpha_modes(&adapter)[0],
     };
     surface.configure(&device, &config);
@@ -253,7 +255,10 @@ fn start(
 
     let mut test_ui = gui::Gui::new(&window, &device, &config);
     log::info!("Initializing the example...");
-    let mut example = state::State::init(&config, &adapter, &device, &queue);
+
+    let params: state::Params = state::Params::new();
+
+    let mut example = state::State::init(params, &config, &adapter, &device, &queue);
 
     #[cfg(not(target_arch = "wasm32"))]
     let mut last_frame_inst = Instant::now();
@@ -320,7 +325,7 @@ fn start(
                     ..
                 } => {
                     //println!("{:#?}", instance.generate_report());
-                   example = state::State::init(&config, &adapter, &device, &queue);
+                   example = state::State::init(params, &config, &adapter, &device, &queue);
                 }
 
                 WindowEvent::MouseWheel { delta, .. } => {
@@ -381,10 +386,10 @@ fn start(
                     last_frame_inst = Instant::now();
                     frame_count += 1;
                     if frame_count == 100 {
-                        println!(
-                            "Avg frame time {}ms",
-                            accum_time * 1000.0 / frame_count as f32
-                        );
+                        // println!(
+                        //     "Avg frame time {}ms",
+                        //     accum_time * 1000.0 / frame_count as f32
+                        // );
                         accum_time = 0.0;
                         frame_count = 0;
                     }
