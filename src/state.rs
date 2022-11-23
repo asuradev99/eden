@@ -7,7 +7,7 @@ use wgpu::util::DeviceExt;
 
 
 //number of particles in the simulation 
-const NUM_PARTICLES: u32 = 50000;
+const NUM_PARTICLES: u32 = 100;
 
 const PARTICLES_PER_GROUP: u32 = 1; 
 
@@ -37,8 +37,8 @@ impl Camera {
 }
 
 const PARAMS: [f32; 2] = [
-    0.001, //dt
-    0.001//Gravitational constant
+   0.01, //dt
+    0.1//Gravitational constant
 ];
 
 

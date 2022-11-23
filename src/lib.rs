@@ -244,7 +244,7 @@ fn start(
             format: surface.get_supported_formats(&adapter)[0],
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::Fifo,
+            present_mode: wgpu::PresentMode::Immediate,
             alpha_mode: surface.get_supported_alpha_modes(&adapter)[0],
     };
     surface.configure(&device, &config);
@@ -381,10 +381,10 @@ fn start(
                     last_frame_inst = Instant::now();
                     frame_count += 1;
                     if frame_count == 100 {
-                        // println!(
-                        //     "Avg frame time {}ms",
-                        //     accum_time * 1000.0 / frame_count as f32
-                        // );
+                        println!(
+                            "Avg frame time {}ms",
+                            accum_time * 1000.0 / frame_count as f32
+                        );
                         accum_time = 0.0;
                         frame_count = 0;
                     }
