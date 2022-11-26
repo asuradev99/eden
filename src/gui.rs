@@ -11,11 +11,14 @@ pub enum OutputState {
     ReloadRequired, 
     None,
 }
+use crate::state::Params;
+
 pub struct Gui {
     pub platform: Platform,
     egui_rpass: egui_wgpu_backend::RenderPass,
     tdelta: egui::TexturesDelta,
     pub state: OutputState,
+    inner_params: Params,
 }
 
 impl Gui {
@@ -30,11 +33,13 @@ impl Gui {
         }); 
         let tdelta = egui::TexturesDelta::default();
         let state = OutputState::None;
+        let inner_params = Params::new();
         Self {
            platform, 
            egui_rpass,
            tdelta,
-           state
+           state,
+           inner_params
         }
     }
     pub fn ui(&mut self) {
@@ -46,26 +51,52 @@ impl Gui {
         // });
         let mut open = true;
         self.state = OutputState::None;
-        egui::Window::new("📤 Output Events")
+        egui::Window::new("Simulation Parameters")
             .open(&mut open)
             .resizable(true)
             .default_width(520.0)
             .show(&self.platform.context(), |ui| {
-                ui.label(
-                    "Recent output events from egui. \
-            These are emitted when you interact with widgets, or move focus between them with TAB. \
-            They can be hooked up to a screen reader on supported platforms.",
-                );
+                egui::Grid::new("my_grid")
+                .num_columns(2)
+                .spacing([40.0, 4.0])
+                .striped(true)
+                .show(ui, |ui| {
+                    ui.label("Gravitational Constant: ");
+                    ui.add(
+                        egui::DragValue::new(&mut self.inner_params.g)
+                    );
+                     
+                    ui.end_row();
 
-                ui.separator();
+                    ui.label("Delta Time: ");
+                    ui.add(
+                        egui::DragValue::new(
+                            &mut self.inner_params.dt
+                        )
+                        
+                    );
+
+                    ui.end_row();
+
+                    ui.label("Number of Particles: ");
+                    ui.add(
+                        egui::DragValue::new(
+                            &mut self.inner_params.num_particles
+                        )
+                        
+                    );
+
+                    ui.end_row();
+
+                ui.end_row();
                 if ui.add(egui::Button::new("Click me")).clicked() {
                     self.state = OutputState::ReloadRequired;
                 }
-                egui::ScrollArea::vertical()
-                    .stick_to_bottom(true)
-                    .show(ui, |ui| {
-                        
-                    });
+
+                });
+                
+                
+               
             });
     }
 
@@ -118,4 +149,7 @@ impl Gui {
         .expect("remove texture ok");
     }
 
+    pub fn gen_params(&self) -> Params {
+        self.inner_params.clone()
+    }
 }
