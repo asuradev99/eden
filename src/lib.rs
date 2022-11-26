@@ -325,6 +325,7 @@ fn start(
                     ..
                 } => {
                     //println!("{:#?}", instance.generate_report());
+                   let params = test_ui.gen_params();
                    example = state::State::init(params, &config, &adapter, &device, &queue);
                 }
 
@@ -416,7 +417,8 @@ fn start(
                 
                 test_ui.cleanup();
 
-                if(test_ui.state == gui::OutputState::ReloadRequired) {
+                if(test_ui.state == gui::OutputState::ReloadRequired) {  
+                    let params = test_ui.gen_params();
                     example = state::State::init(params, &config, &adapter, &device, &queue);
                 }
                 #[cfg(target_arch = "wasm32")]
