@@ -285,7 +285,7 @@ fn start(
                 _ => {
                     example.update(event);
                 }
-            },
+            }
             event::Event::RedrawRequested(_) => {
                 //platform.update_time(start_time.elapsed().as_secs_f64());
                 {
@@ -316,7 +316,7 @@ fn start(
                     .create_view(&wgpu::TextureViewDescriptor::default());
                       //render ui
 
-                example.render(&view, &device, &queue, &spawner);
+                example.render(&view, &device, &queue);
                 test_ui.render(&window, &device, &view, &queue);
 
                 frame.present();
@@ -338,16 +338,16 @@ fn start(
                             .bitmap_renderer
                             .transfer_from_image_bitmap(&image_bitmap);
 
+            
+                    }
+                }
             }
             _ => {}
+
+                    
         }
-    });
-}
-
-
-pub fn run<E: Example>(title: &str) {
-    let setup = pollster::block_on(setup::<E>(title));
-    start::<E>(setup);
+    }
+    );
 }
 
 
