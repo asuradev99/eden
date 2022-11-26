@@ -26,6 +26,9 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
   var vVel : vec2<f32> = particlesSrc[index].vel;
 
   var aAccum : vec2<f32> = vec2<f32>(0.0, 0.0);
+  var dAccum : vec2<f32> = vec2<f32>(0.0, 0.0);
+
+
   var i : u32 = 0u;
   loop {
     if (i >= total) {
@@ -42,14 +45,15 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 //     let vel = particlesSrc[i].vel;
      var distance = pow(distance_vector, vec2<f32>(2.0, 2.0));
      var distance_squared: f32 = distance.x + distance.y; 
-      if (sqrt(distance_squared) < 0.009109375) {
+     var dist = sqrt(distance_squared);
+      if (dist < 0.009109375) {
          continue; 
     }
-     var mag: f32 = params.G / (distance_squared);
+     var mag: f32 = params.G / distance_squared; //(distance_squared);
      var accel: vec2<f32> = (distance_vector / sqrt(distance_squared)) * mag;
-
+    // var accel: vec2<f32> = mat2x2<f32>(0.0, -1.0, 1.0, 0.0) * accelm;
      aAccum = aAccum + accel;
-     
+     dAccum = dAccum + distance_vector / 50000.0;
      if(length(aAccum) < 0.0 ) {
         vVel = vec2<f32>(0.0, 0.0);
         break;
@@ -59,8 +63,10 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
      }
   }
 
-  vVel = vVel + aAccum * params.dt; 
+  vVel =  sqrt(length(aAccum) * length(dAccum) ) * mat2x2<f32>(0.0, -1.0, 1.0, 0.0) * aAccum * params.dt; 
   vPos = vPos + vVel * params.dt;
+//     vPos.x = vPos.x + 0.001;
+
 //   if (cMassCount > 0) {
 //     cMass = cMass * (1.0 / f32(cMassCount)) - vPos;
 //   }
@@ -78,20 +84,20 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 //   // kinematic update
 //   vPos += vVel * params.dt;
 
-  //vPos.x += params.dt / 100.0;
-  // Wrap around boundary
-  if (vPos.x < -1.0) {
-    vPos.x = 1.0;
-  }
-  if (vPos.x > 1.0) {
-    vPos.x = -1.0;
-  }
-  if (vPos.y < -1.0) {
-    vPos.y = 1.0;
-  }
-  if (vPos.y > 1.0) {
-    vPos.y = -1.0;
-  }
+  // //vPos.x += params.dt / 100.0;
+  // //Wrap around boundary
+  // if (vPos.x < -1.0) {
+  //   vPos.x = 1.0;
+  // }
+  // if (vPos.x > 1.0) {
+  //   vPos.x = -1.0;
+  // }
+  // if (vPos.y < -1.0) {
+  //   vPos.y = 1.0;
+  // }
+  // if (vPos.y > 1.0) {
+  //   vPos.y = -1.0;
+  // }
 
   // Write back
   particlesDst[index] = Particle(vPos, vVel);

@@ -1,21 +1,64 @@
 
 //use nanorand::{Rng, WyRand};
-use nanorand::{Rng, WyRand};
+use rand::prelude::*;
 use std::{borrow::Cow, mem};
-use eden::{Example, Spawner};
+
 use wgpu::util::DeviceExt;
 
 
-//number of particles in the simulation 
-const NUM_PARTICLES: u32 = 20000;
 
-const PARTICLES_PER_GROUP: u32 = 2; 
+#[derive(Debug, Copy, Clone)]
+pub struct Camera {
+    pub x: f32, 
+    pub y: f32,
+    pub zoom: f32, 
+}
 
+impl Camera {
+    pub fn new() -> Self {
+        Camera {
+            x: 0.0, 
+            y: 0.0,
+            zoom: 1.0, 
+        }
+    }
 
-const PARAMS: [f32; 2] = [
-    0.1, //dt
-    0.00000000001//Gravitational constant
-];
+    pub fn to_slice(&self) -> [f32; 3] {
+        [
+            self.x, 
+            self.y, 
+            self.zoom
+        ]
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct Params {
+    pub g: f32, 
+    pub dt: f32,
+    pub num_particles: u32,
+}
+
+impl Params {
+    pub fn new() -> Self {
+        Params {
+            g: 0.01,
+            dt: 0.1, 
+            num_particles: 1000,
+        }
+    }
+    pub fn to_slice(&self) -> [f32; 2] {
+        [
+            self.g, 
+            self.dt, 
+        ]
+    }
+}
+
+// const PARAMS: [f32; 2] = [
+//     0.001, //dt
+//     0.01//Gravitational constant
+// ];
 
 
 /// Example struct holds references to wgpu resources and frame persistent data
@@ -26,10 +69,15 @@ pub struct State {
     render_pipeline: wgpu::RenderPipeline,
     work_group_count: u32,
     frame_num: usize,
+    pub camera: Camera,
+    pub camera_uniform_buffer: wgpu::Buffer, 
+    pub params: Params,
+    camera_bind_group: wgpu::BindGroup,
+
 }
 
-impl eden::Example for State {
-    fn required_limits() -> wgpu::Limits {
+impl State {
+    pub fn required_limits() -> wgpu::Limits {
         //set surface limits based on the target architecture
         if cfg!(target_arch = "wasm32") {
             wgpu::Limits::downlevel_webgl2_defaults()
@@ -38,7 +86,7 @@ impl eden::Example for State {
         }
     }
 
-    fn required_downlevel_capabilities() -> wgpu::DownlevelCapabilities {
+    pub fn required_downlevel_capabilities() -> wgpu::DownlevelCapabilities {
         //downlevel capabilites that don't confirm to WebGPU standard
         wgpu::DownlevelCapabilities {
             flags: wgpu::DownlevelFlags::COMPUTE_SHADERS,
@@ -46,12 +94,18 @@ impl eden::Example for State {
         }
     }
 
-    fn init(
+    pub fn init(
+        params: Params,
         config: &wgpu::SurfaceConfiguration,
         _adapter: &wgpu::Adapter,
         device: &wgpu::Device,
         _queue: &wgpu::Queue,
     ) -> Self {
+
+        //create parameters 
+        let params = params; 
+        let params_slice = params.to_slice();
+
         //initialize compute shader module
         let compute_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
@@ -65,12 +119,21 @@ impl eden::Example for State {
         });
 
         //set up uniform buffer to store global parameters
-
         let sim_param_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Parameter Buffer"),
-            contents: bytemuck::cast_slice(&PARAMS),
+            contents: bytemuck::cast_slice(&(params_slice)),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
+
+        //set up camera buffer
+        let camera = Camera::new();
+        let camera_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Camera Buffer"),
+            contents: bytemuck::cast_slice(&(camera.to_slice())),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+
+        });
+
 
         //set up compute bind group layouts and compute pipeline layours
         let compute_bind_group_layout = 
@@ -84,7 +147,7 @@ impl eden::Example for State {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false, 
                         min_binding_size: wgpu::BufferSize::new(
-                            (PARAMS.len() * mem::size_of::<f32>()) as _,
+                            (params_slice.len() * mem::size_of::<f32>()) as _,
                         )
                     },
                     count: None,
@@ -97,7 +160,7 @@ impl eden::Example for State {
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Storage {read_only: true},
                         has_dynamic_offset: false, 
-                        min_binding_size: wgpu::BufferSize::new((NUM_PARTICLES * 16) as _), //CHANGE SIZE IF ISSUES
+                        min_binding_size: wgpu::BufferSize::new((params.num_particles * 16) as _), //CHANGE SIZE IF ISSUES
                     },
                     count: None,
                 },
@@ -109,7 +172,7 @@ impl eden::Example for State {
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Storage {read_only: false},
                         has_dynamic_offset: false, 
-                        min_binding_size: wgpu::BufferSize::new((NUM_PARTICLES * 16) as _),
+                        min_binding_size: wgpu::BufferSize::new((params.num_particles * 16) as _),
                     },
                     count: None,
                 },
@@ -123,11 +186,29 @@ impl eden::Example for State {
                 bind_group_layouts: &[&compute_bind_group_layout],
                 push_constant_ranges: &[],
             });
+
+        //camera bind group layout
+        let camera_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }
+            ],
+            label: Some("camera_bind_group_layout"),
+        });
+
         //render pipeline layout
         let render_pipeline_layout = 
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("render"),
-                bind_group_layouts: &[], 
+                bind_group_layouts: &[ &camera_bind_group_layout], 
                 push_constant_ranges: &[],
             });
         
@@ -184,18 +265,18 @@ impl eden::Example for State {
 
 
         // buffer for all particles data of type [(posx,posy,velx,vely),...]
-        let mut initial_particle_data = vec![0.0f32; (4 * NUM_PARTICLES) as usize];
+        let mut initial_particle_data = vec![0.0f32; (4 * (params.num_particles)) as usize];
         
         //generate random pos and vel
-        let mut rng = WyRand::new_seed(42);
-        let mut unif = || rng.generate::<f32>() * 2f32 - 1f32; // Generate a num (-1, 1)
+        let mut rng = rand::thread_rng();
+        let mut unif = || rng.gen::<f32>() * 2f32 - 1f32; // Generate a num (-1, 1)
         for particle_instance_chunk in initial_particle_data.chunks_mut(4) {
             particle_instance_chunk[0] = unif(); // posx
             particle_instance_chunk[1] = unif(); // posy
            
         };
 
-        println!("{:?}", initial_particle_data);
+        //println!("{:?}", initial_particle_data);
         // creates two buffers of particle data each of size NUM_PARTICLES
         // the two buffers alternate as dst and src for each frame
 
@@ -213,7 +294,19 @@ impl eden::Example for State {
             );
         }
 
-
+        //camera bind group 
+        let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &camera_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: camera_uniform_buffer.as_entire_binding(),
+                }
+            ],
+            label: Some("camera_bind_group"),
+        });
+        
+         
         // create two bind groups, one for each buffer as the src
         // where the alternate buffer is used as the dst
 
@@ -238,10 +331,9 @@ impl eden::Example for State {
             }));
         }
         
-
+        
         // calculates number of work groups from PARTICLES_PER_GROUP constant
-        let work_group_count =
-            ((NUM_PARTICLES as f32) / (PARTICLES_PER_GROUP as f32)).ceil() as u32;
+        let work_group_count = u32::min(params.num_particles, 65535);
 
         // returns Example struct and No encoder commands
 
@@ -252,17 +344,21 @@ impl eden::Example for State {
             render_pipeline,
             work_group_count,
             frame_num: 0,
+            camera,
+            camera_uniform_buffer, 
+            params, 
+            camera_bind_group
         }
 
     }
 
     /// update is called for any WindowEvent not handled by the framework
-    fn update(&mut self, _event: winit::event::WindowEvent) {
+    pub  fn update(&mut self, _event: winit::event::WindowEvent) {
         //empty
     }
 
     /// resize is called on WindowEvent::Resized events
-    fn resize(
+    pub fn resize(
         &mut self,
         _sc_desc: &wgpu::SurfaceConfiguration,
         _device: &wgpu::Device,
@@ -270,12 +366,11 @@ impl eden::Example for State {
     ) {
         //empty
     }
-    fn render(
+    pub fn render(
         &mut self,
         view: &wgpu::TextureView,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        _spawner: &Spawner,
     ) {
         // create render pass descriptor and its color attachments
         let color_attachments = [Some(wgpu::RenderPassColorAttachment {
@@ -298,7 +393,7 @@ impl eden::Example for State {
         let mut command_encoder =
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-        command_encoder.push_debug_group("compute boid movement");
+        //compute pass
         {
             // compute pass
             let mut cpass =
@@ -307,19 +402,19 @@ impl eden::Example for State {
             cpass.set_bind_group(0, &self.particle_bind_groups[self.frame_num % 2], &[]);
             cpass.dispatch_workgroups(self.work_group_count, 1, 1);
         }
-        command_encoder.pop_debug_group();
 
-        command_encoder.push_debug_group("render boids");
+        //render pass
         {
             // render pass
             let mut rpass = command_encoder.begin_render_pass(&render_pass_descriptor);
             rpass.set_pipeline(&self.render_pipeline);
+            //load camera uniform buffer 
+            rpass.set_bind_group(0, &self.camera_bind_group, &[]);
             // render dst particles
             rpass.set_vertex_buffer(0, self.particle_buffers[(self.frame_num + 1) % 2].slice(..));
             // the three instance-local vertices ????
-            rpass.draw(0..1, 0..NUM_PARTICLES);
+            rpass.draw(0..1, 0..self.params.num_particles );
         }
-        command_encoder.pop_debug_group();
 
         // update frame count
         self.frame_num += 1;
