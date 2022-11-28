@@ -1,57 +1,49 @@
-
 //use nanorand::{Rng, WyRand};
 use rand::prelude::*;
 use std::{borrow::Cow, mem};
 
 use wgpu::util::DeviceExt;
 
-
-
 #[derive(Debug, Copy, Clone)]
 pub struct Camera {
-    pub x: f32, 
+    pub x: f32,
     pub y: f32,
-    pub zoom: f32, 
+    pub zoom: f32,
 }
 
 impl Camera {
     pub fn new() -> Self {
         Camera {
-            x: 0.0, 
+            x: 0.0,
             y: 0.0,
-            zoom: 1.0, 
+            zoom: 1.0,
         }
     }
 
     pub fn to_slice(&self) -> [f32; 3] {
-        [
-            self.x, 
-            self.y, 
-            self.zoom
-        ]
+        [self.x, self.y, self.zoom]
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct Params {
-    pub g: f32, 
+    pub g: f32,
     pub dt: f32,
     pub num_particles: u32,
+    pub shader_buffer: String,
 }
 
 impl Params {
     pub fn new() -> Self {
         Params {
             g: 0.01,
-            dt: 0.1, 
+            dt: 0.1,
             num_particles: 1000,
+            shader_buffer: crate::DEFAULT_COMPUTE_SHADER.to_string(),
         }
     }
     pub fn to_slice(&self) -> [f32; 2] {
-        [
-            self.g, 
-            self.dt, 
-        ]
+        [self.g, self.dt]
     }
 }
 
@@ -59,7 +51,6 @@ impl Params {
 //     0.001, //dt
 //     0.01//Gravitational constant
 // ];
-
 
 /// Example struct holds references to wgpu resources and frame persistent data
 pub struct State {
@@ -70,10 +61,9 @@ pub struct State {
     work_group_count: u32,
     frame_num: usize,
     pub camera: Camera,
-    pub camera_uniform_buffer: wgpu::Buffer, 
+    pub camera_uniform_buffer: wgpu::Buffer,
     pub params: Params,
     camera_bind_group: wgpu::BindGroup,
-
 }
 
 impl State {
@@ -101,15 +91,14 @@ impl State {
         device: &wgpu::Device,
         _queue: &wgpu::Queue,
     ) -> Self {
-
-        //create parameters 
-        let params = params; 
+        //create parameters
+        let params = params;
         let params_slice = params.to_slice();
 
         //initialize compute shader module
         let compute_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/compute.wgsl"))),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(&params.shader_buffer)),
         });
 
         //initialize vertex and fragment shaders
@@ -131,56 +120,56 @@ impl State {
             label: Some("Camera Buffer"),
             contents: bytemuck::cast_slice(&(camera.to_slice())),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-
         });
 
-
         //set up compute bind group layouts and compute pipeline layours
-        let compute_bind_group_layout = 
+        let compute_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[
-                //PARAM buffer
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0, 
-                    visibility: wgpu::ShaderStages::COMPUTE, 
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false, 
-                        min_binding_size: wgpu::BufferSize::new(
-                            (params_slice.len() * mem::size_of::<f32>()) as _,
-                        )
+                    //PARAM buffer
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: wgpu::BufferSize::new(
+                                (params_slice.len() * mem::size_of::<f32>()) as _,
+                            ),
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-
-                //input / source buffer
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::COMPUTE, 
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage {read_only: true},
-                        has_dynamic_offset: false, 
-                        min_binding_size: wgpu::BufferSize::new((params.num_particles * 16) as _), //CHANGE SIZE IF ISSUES
+                    //input / source buffer
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: wgpu::BufferSize::new(
+                                (params.num_particles * 16) as _,
+                            ), //CHANGE SIZE IF ISSUES
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-
-                //output / destination buffer
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2, 
-                    visibility: wgpu::ShaderStages::COMPUTE, 
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage {read_only: false},
-                        has_dynamic_offset: false, 
-                        min_binding_size: wgpu::BufferSize::new((params.num_particles * 16) as _),
+                    //output / destination buffer
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: false },
+                            has_dynamic_offset: false,
+                            min_binding_size: wgpu::BufferSize::new(
+                                (params.num_particles * 16) as _,
+                            ),
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-                ], 
-                label: None
+                ],
+                label: None,
             });
-        //compute pipeline layout = 
-        let compute_pipeline_layout = 
+        //compute pipeline layout =
+        let compute_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Compute"),
                 bind_group_layouts: &[&compute_bind_group_layout],
@@ -188,9 +177,9 @@ impl State {
             });
 
         //camera bind group layout
-        let camera_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
+        let camera_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStages::VERTEX,
                     ty: wgpu::BindingType::Buffer {
@@ -199,36 +188,33 @@ impl State {
                         min_binding_size: None,
                     },
                     count: None,
-                }
-            ],
-            label: Some("camera_bind_group_layout"),
-        });
+                }],
+                label: Some("camera_bind_group_layout"),
+            });
 
         //render pipeline layout
-        let render_pipeline_layout = 
+        let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("render"),
-                bind_group_layouts: &[ &camera_bind_group_layout], 
+                bind_group_layouts: &[&camera_bind_group_layout],
                 push_constant_ranges: &[],
             });
-        
+
         //initialize render pipeline
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: None, 
+            label: None,
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
-                module: &draw_shader, 
+                module: &draw_shader,
                 entry_point: "main_vs",
                 buffers: &[
                     //vertex buffer layout format (2 pos varibales, 2 vel variables)
                     wgpu::VertexBufferLayout {
-                        array_stride: 4 * 4, 
+                        array_stride: 4 * 4,
                         step_mode: wgpu::VertexStepMode::Instance,
                         attributes: &wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2],
                     },
-                    
                 ],
-
             },
             fragment: Some(wgpu::FragmentState {
                 module: &draw_shader,
@@ -244,7 +230,6 @@ impl State {
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
         });
-
 
         // create compute pipeline
 
@@ -263,18 +248,16 @@ impl State {
         //     usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         // });
 
-
         // buffer for all particles data of type [(posx,posy,velx,vely),...]
         let mut initial_particle_data = vec![0.0f32; (4 * (params.num_particles)) as usize];
-        
+
         //generate random pos and vel
         let mut rng = rand::thread_rng();
         let mut unif = || rng.gen::<f32>() * 2f32 - 1f32; // Generate a num (-1, 1)
         for particle_instance_chunk in initial_particle_data.chunks_mut(4) {
             particle_instance_chunk[0] = unif(); // posx
             particle_instance_chunk[1] = unif(); // posy
-           
-        };
+        }
 
         //println!("{:?}", initial_particle_data);
         // creates two buffers of particle data each of size NUM_PARTICLES
@@ -294,19 +277,16 @@ impl State {
             );
         }
 
-        //camera bind group 
+        //camera bind group
         let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &camera_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: camera_uniform_buffer.as_entire_binding(),
-                }
-            ],
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: camera_uniform_buffer.as_entire_binding(),
+            }],
             label: Some("camera_bind_group"),
         });
-        
-         
+
         // create two bind groups, one for each buffer as the src
         // where the alternate buffer is used as the dst
 
@@ -330,8 +310,7 @@ impl State {
                 label: None,
             }));
         }
-        
-        
+
         // calculates number of work groups from PARTICLES_PER_GROUP constant
         let work_group_count = u32::min(params.num_particles, 65535);
 
@@ -345,15 +324,14 @@ impl State {
             work_group_count,
             frame_num: 0,
             camera,
-            camera_uniform_buffer, 
-            params, 
-            camera_bind_group
+            camera_uniform_buffer,
+            params,
+            camera_bind_group,
         }
-
     }
 
     /// update is called for any WindowEvent not handled by the framework
-    pub  fn update(&mut self, _event: winit::event::WindowEvent) {
+    pub fn update(&mut self, _event: winit::event::WindowEvent) {
         //empty
     }
 
@@ -366,12 +344,7 @@ impl State {
     ) {
         //empty
     }
-    pub fn render(
-        &mut self,
-        view: &wgpu::TextureView,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-    ) {
+    pub fn render(&mut self, view: &wgpu::TextureView, device: &wgpu::Device, queue: &wgpu::Queue) {
         // create render pass descriptor and its color attachments
         let color_attachments = [Some(wgpu::RenderPassColorAttachment {
             view,
@@ -408,12 +381,12 @@ impl State {
             // render pass
             let mut rpass = command_encoder.begin_render_pass(&render_pass_descriptor);
             rpass.set_pipeline(&self.render_pipeline);
-            //load camera uniform buffer 
+            //load camera uniform buffer
             rpass.set_bind_group(0, &self.camera_bind_group, &[]);
             // render dst particles
             rpass.set_vertex_buffer(0, self.particle_buffers[(self.frame_num + 1) % 2].slice(..));
             // the three instance-local vertices ????
-            rpass.draw(0..1, 0..self.params.num_particles );
+            rpass.draw(0..1, 0..self.params.num_particles);
         }
 
         // update frame count
