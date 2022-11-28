@@ -1,14 +1,14 @@
-use egui;
+use egui::{self, ScrollArea, TextEdit};
 
-use egui_winit_platform::{Platform, PlatformDescriptor};
 use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
+use egui_winit_platform::{Platform, PlatformDescriptor};
 
 use winit::window::Window;
 
 use wgpu::{Device, SurfaceConfiguration, TextureView};
 #[derive(PartialEq)]
 pub enum OutputState {
-    ReloadRequired, 
+    ReloadRequired,
     None,
 }
 use crate::state::Params;
@@ -30,16 +30,16 @@ impl Gui {
             scale_factor: window.scale_factor(),
             font_definitions: egui::FontDefinitions::default(),
             style: Default::default(),
-        }); 
+        });
         let tdelta = egui::TexturesDelta::default();
         let state = OutputState::None;
         let inner_params = Params::new();
         Self {
-           platform, 
-           egui_rpass,
-           tdelta,
-           state,
-           inner_params
+            platform,
+            egui_rpass,
+            tdelta,
+            state,
+            inner_params,
         }
     }
     pub fn ui(&mut self) {
@@ -57,50 +57,44 @@ impl Gui {
             .default_width(520.0)
             .show(&self.platform.context(), |ui| {
                 egui::Grid::new("my_grid")
-                .num_columns(2)
-                .spacing([40.0, 4.0])
-                .striped(true)
-                .show(ui, |ui| {
-                    ui.label("Gravitational Constant: ");
-                    ui.add(
-                        egui::DragValue::new(&mut self.inner_params.g)
-                    );
-                     
-                    ui.end_row();
+                    .num_columns(2)
+                    .spacing([40.0, 4.0])
+                    .striped(true)
+                    .show(ui, |ui| {
+                        ui.label("Gravitational Constant: ");
+                        ui.add(egui::DragValue::new(&mut self.inner_params.g));
+                        ui.end_row();
 
-                    ui.label("Delta Time: ");
-                    ui.add(
-                        egui::DragValue::new(
-                            &mut self.inner_params.dt
-                        )
-                        
-                    );
+                        ui.label("Delta Time: ");
+                        ui.add(egui::DragValue::new(&mut self.inner_params.dt));
+                        ui.end_row();
 
-                    ui.end_row();
+                        ui.label("Number of Particles: ");
+                        ui.add(egui::DragValue::new(&mut self.inner_params.num_particles));
+                    });
+                
+                    if ui.add(egui::Button::new("Restart Simulation")).clicked() {
+                        self.state = OutputState::ReloadRequired;
+                    }
+            });
 
-                    ui.label("Number of Particles: ");
-                    ui.add(
-                        egui::DragValue::new(
-                            &mut self.inner_params.num_particles
-                        )
-                        
-                    );
-
-                    ui.end_row();
-
-                ui.end_row();
-                if ui.add(egui::Button::new("Click me")).clicked() {
-                    self.state = OutputState::ReloadRequired;
-                }
-
+        egui::Window::new("Edit Shader")
+            // .fixed_size([500.0, 500.0])
+            // .anchor(egui::Align2::RIGHT_TOP, [-5.0, 5.0])
+            .show(&self.platform.context(), |ui| {
+                ScrollArea::vertical().show(ui, |ui| {
+                    ui.add(TextEdit::multiline(&mut self.inner_params.shader_buffer).code_editor());
                 });
-                
-                
-               
             });
     }
 
-    pub fn render(&mut self, window: &Window, device: &Device, view: &TextureView, queue: &wgpu::Queue) {
+    pub fn render(
+        &mut self,
+        window: &Window,
+        device: &Device,
+        view: &TextureView,
+        queue: &wgpu::Queue,
+    ) {
         // Begin to draw the UI frame.
         self.platform.begin_frame();
 
@@ -126,17 +120,12 @@ impl Gui {
         self.egui_rpass
             .add_textures(&device, &queue, &self.tdelta)
             .expect("add texture ok");
-        self.egui_rpass.update_buffers(&device, &queue, &paint_jobs, &screen_descriptor);
+        self.egui_rpass
+            .update_buffers(&device, &queue, &paint_jobs, &screen_descriptor);
 
         // Record all render passes.
         self.egui_rpass
-            .execute(
-                &mut encoder,
-                &view,
-                &paint_jobs,
-                &screen_descriptor,
-                None,
-            )
+            .execute(&mut encoder, &view, &paint_jobs, &screen_descriptor, None)
             .unwrap();
         // Submit the commands.
         queue.submit(std::iter::once(encoder.finish()));
@@ -145,8 +134,8 @@ impl Gui {
     pub fn cleanup(&mut self) {
         // Redraw egui
         self.egui_rpass
-        .remove_textures(self.tdelta.clone())
-        .expect("remove texture ok");
+            .remove_textures(self.tdelta.clone())
+            .expect("remove texture ok");
     }
 
     pub fn gen_params(&self) -> Params {

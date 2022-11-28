@@ -7,7 +7,7 @@ use winit::{
     event_loop::{ControlFlow, EventLoop}, dpi::PhysicalPosition,
 };
 
-use crate::state::Params;
+const DEFAULT_COMPUTE_SHADER: &str = include_str!("shaders/compute.wgsl");
 
 #[allow(dead_code)]
 pub fn cast_slice<T>(data: &[T]) -> &[u8] {
