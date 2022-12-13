@@ -61,6 +61,10 @@ impl Gui {
                     .spacing([40.0, 4.0])
                     .striped(true)
                     .show(ui, |ui| {
+                        ui.label("World Size: ");
+                        ui.add(egui::DragValue::new(&mut self.inner_params.world_size));
+                        ui.end_row();
+
                         ui.label("Gravitational Constant: ");
                         ui.add(egui::DragValue::new(&mut self.inner_params.g));
                         ui.end_row();
@@ -79,6 +83,8 @@ impl Gui {
             });
 
         egui::Window::new("Edit Shader")
+            .resizable(true)
+            .min_width(10000.0)
             // .fixed_size([500.0, 500.0])
             // .anchor(egui::Align2::RIGHT_TOP, [-5.0, 5.0])
             .show(&self.platform.context(), |ui| {

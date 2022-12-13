@@ -12,11 +12,11 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new() -> Self {
+    pub fn new(zoom: f32) -> Self {
         Camera {
             x: 0.0,
             y: 0.0,
-            zoom: 1.0,
+            zoom: zoom,
         }
     }
 
@@ -30,6 +30,7 @@ pub struct Params {
     pub g: f32,
     pub dt: f32,
     pub num_particles: u32,
+    pub world_size: f32,
     pub shader_buffer: String,
 }
 
@@ -40,6 +41,7 @@ impl Params {
             dt: 0.1,
             num_particles: 1000,
             shader_buffer: crate::DEFAULT_COMPUTE_SHADER.to_string(),
+            world_size: 1.0,
         }
     }
     pub fn to_slice(&self) -> [f32; 2] {
@@ -115,7 +117,7 @@ impl State {
         });
 
         //set up camera buffer
-        let camera = Camera::new();
+        let camera = Camera::new(1.0 / (params.world_size * 1.5));
         let camera_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Buffer"),
             contents: bytemuck::cast_slice(&(camera.to_slice())),
@@ -253,7 +255,7 @@ impl State {
 
         //generate random pos and vel
         let mut rng = rand::thread_rng();
-        let mut unif = || rng.gen::<f32>() * 2f32 - 1f32; // Generate a num (-1, 1)
+        let mut unif = || (rng.gen::<f32>() * 2f32 - 1f32) * params.world_size; // Generate a num (-1, 1)
         for particle_instance_chunk in initial_particle_data.chunks_mut(4) {
             particle_instance_chunk[0] = unif(); // posx
             particle_instance_chunk[1] = unif(); // posy
