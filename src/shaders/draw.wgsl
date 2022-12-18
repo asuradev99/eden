@@ -12,6 +12,9 @@ struct Camera {
 fn main_vs(
     @location(0) particle_pos: vec2<f32>,
     @location(1) particle_vel: vec2<f32>,
+    @location(2) mass: f32,
+    @location(3) kind: f32,
+    //@location(2) mass: f32,
 ) -> @builtin(position) vec4<f32> {
     let camera_pos_vec = vec2<f32>(camera.x, camera.y);
     var new_pos: vec2<f32> = particle_pos;

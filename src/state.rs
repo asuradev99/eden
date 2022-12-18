@@ -40,11 +40,11 @@ pub struct Params {
 impl Params {
     pub fn new() -> Self {
         Params {
-            g: 0.01,
-            dt: 0.1,
-            num_particles: 1000,
+            g: 0.1,
+            dt: 0.01,
+            num_particles: 100,
             shader_buffer: crate::DEFAULT_COMPUTE_SHADER.to_string(),
-            world_size: 1.0,
+            world_size: 100.0,
         }
     }
     pub fn to_slice(&self) -> [f32; 2] {
@@ -172,7 +172,7 @@ impl State {
                             has_dynamic_offset: false,
                             min_binding_size: wgpu::BufferSize::new(
                                 (params_slice.len() * mem::size_of::<f32>()) as _,
-                            ),
+                            ),  
                         },
                         count: None,
                     },
@@ -184,7 +184,7 @@ impl State {
                             ty: wgpu::BufferBindingType::Storage { read_only: true },
                             has_dynamic_offset: false,
                             min_binding_size: wgpu::BufferSize::new(
-                                (params.num_particles * (mem::size_of::<Particle>() as u32)) as _,
+                                (params.num_particles * 24) as _,
                             ), //CHANGE SIZE IF ISSUES
                         },
                         count: None,
@@ -197,7 +197,7 @@ impl State {
                             ty: wgpu::BufferBindingType::Storage { read_only: false },
                             has_dynamic_offset: false,
                             min_binding_size: wgpu::BufferSize::new(
-                                (params.num_particles * (mem::size_of::<Particle>() as u32)) as _,
+                                (params.num_particles * 24) as _,
                             ),
                         },
                         count: None,
@@ -247,10 +247,9 @@ impl State {
                 buffers: &[
                     //vertex buffer layout format (2 pos varibales, 2 vel variables)
                     wgpu::VertexBufferLayout {
-                     //   array_stride: std::mem::size_of::<Particle>() as u64,
-                        array_stride: std::mem::size_of::<Particle>() as u64,
+                        array_stride:  24,
                         step_mode: wgpu::VertexStepMode::Instance,
-                        attributes: &wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2],
+                        attributes: &wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2, 2 => Float32, 3 => Float32],
                     },
                 ],
             },
@@ -287,14 +286,20 @@ impl State {
         // });
 
         // buffer for all particles data of type [(posx,posy,velx,vely),...]
-        let mut initial_particle_data:Vec<f32> = Vec::new();
-        for i in 0..params.num_particles {
-            initial_particle_data.extend_from_slice(&Particle::new_random(&params).to_slice())
+        let mut initial_particle_data = vec![0.0f32; (6 * (params.num_particles)) as usize];
+
+        //generate random pos and vel
+        let mut rng = rand::thread_rng();
+        let mut unif = || (rng.gen::<f32>() * 2f32 - 1f32) * params.world_size;
+        let mut  bigsmall: u32 = 1; // Generate a num (-1, 1)
+        for particle_instance_chunk in initial_particle_data.chunks_mut(6 as usize) {
+            particle_instance_chunk[0] = unif(); // posx
+            particle_instance_chunk[1] = unif();
+            particle_instance_chunk[4] = unif() * ((bigsmall % 2) as f32) * 100.0 + 1.0 ; 
+            bigsmall += 1;// posy
         }
 
         println!("{:?}", initial_particle_data);
-
-        //println!("{:?}", initial_particle_data);
         // creates two buffers of particle data each of size NUM_PARTICLES
         // the two buffers alternate as dst and src for each frame
 
