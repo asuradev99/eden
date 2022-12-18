@@ -54,7 +54,7 @@ async fn setup(title: &str) -> Setup {
         .with_title("The universe, with a heck of a lot of rounding errors")
         //   .with_fullscreen(video_mode.map(|vm| winit::window::Fullscreen::Exclusive(vm)));
         .with_inner_size(winit::dpi::PhysicalSize {
-            width: 1080, 
+            width: 1920, 
             height: 1080
         });
    

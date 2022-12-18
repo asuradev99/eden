@@ -15,7 +15,7 @@ struct SimParams {
 // https://github.com/austinEng/Project6-Vulkan-Flocking/blob/master/data/shaders/computeparticles/particle.comp
 @compute
 @workgroup_size(64)
-fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
+fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) { 
   let total = arrayLength(&particlesSrc);
   let index = global_invocation_id.x;
   if (index >= total) {
@@ -38,7 +38,8 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     }
 
      let pos = particlesSrc[i].pos;
-     
+     //let mass = particlesSrc[i].mass;
+
      let distance_vector: vec2<f32> = pos - vPos;
      
 //     let vel = particlesSrc[i].vel;

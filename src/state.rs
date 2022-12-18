@@ -9,19 +9,21 @@ pub struct Camera {
     pub x: f32,
     pub y: f32,
     pub zoom: f32,
+    pub aspect_ratio: f32,
 }
 
 impl Camera {
-    pub fn new(zoom: f32) -> Self {
+    pub fn new(zoom: f32, aspect_ratio: f32) -> Self {
         Camera {
             x: 0.0,
             y: 0.0,
             zoom: zoom,
+            aspect_ratio: aspect_ratio,
         }
     }
 
-    pub fn to_slice(&self) -> [f32; 3] {
-        [self.x, self.y, self.zoom]
+    pub fn to_slice(&self) -> [f32; 4] {
+        [self.x, self.y, self.zoom, self.aspect_ratio]
     }
 }
 
@@ -33,6 +35,7 @@ pub struct Params {
     pub world_size: f32,
     pub shader_buffer: String,
 }
+
 
 impl Params {
     pub fn new() -> Self {
@@ -55,6 +58,33 @@ impl Params {
 // ];
 
 /// Example struct holds references to wgpu resources and frame persistent data
+/// 
+struct Particle {
+    pos: (f32, f32),
+    vel: (f32, f32),
+    //mass: f32
+}
+
+impl Particle {
+    pub fn to_slice(&self) -> [f32; 4] {
+        [self.pos.0, self.pos.1, self.vel.0, self.vel.1] //self.mass]
+    }
+    pub fn new_random(params: &Params) -> Self {
+        let mut rng = rand::thread_rng();
+        let mut unif = || (rng.gen::<f32>() * 2f32 - 1f32) * params.world_size;
+
+        let mut rng = rand::thread_rng();
+        let mut unif_mass = || (rng.gen::<f32>() * 2f32 - 1f32) * 10.0;
+
+        Self {
+            pos: (unif(), unif()),
+            vel: (0.0, 0.0),
+            //mass: 1.0
+        }
+    }
+
+}
+
 pub struct State {
     particle_bind_groups: Vec<wgpu::BindGroup>,
     particle_buffers: Vec<wgpu::Buffer>,
@@ -93,6 +123,8 @@ impl State {
         device: &wgpu::Device,
         _queue: &wgpu::Queue,
     ) -> Self {
+
+        println!("{}", mem::size_of::<Particle>());
         //create parameters
         let params = params;
         let params_slice = params.to_slice();
@@ -117,7 +149,10 @@ impl State {
         });
 
         //set up camera buffer
-        let camera = Camera::new(1.0 / (params.world_size * 1.5));
+       // let camera = Camera::new(1.0 / (params.world_size * 1.5));
+       let aspect_ratio:f32 = config.width as f32 / config.height as f32;
+       println!("{} / {} = {}", config.width, config.height, aspect_ratio);
+       let camera = Camera::new(1.0 / params.world_size, aspect_ratio);
         let camera_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Buffer"),
             contents: bytemuck::cast_slice(&(camera.to_slice())),
@@ -149,7 +184,7 @@ impl State {
                             ty: wgpu::BufferBindingType::Storage { read_only: true },
                             has_dynamic_offset: false,
                             min_binding_size: wgpu::BufferSize::new(
-                                (params.num_particles * 16) as _,
+                                (params.num_particles * (mem::size_of::<Particle>() as u32)) as _,
                             ), //CHANGE SIZE IF ISSUES
                         },
                         count: None,
@@ -162,7 +197,7 @@ impl State {
                             ty: wgpu::BufferBindingType::Storage { read_only: false },
                             has_dynamic_offset: false,
                             min_binding_size: wgpu::BufferSize::new(
-                                (params.num_particles * 16) as _,
+                                (params.num_particles * (mem::size_of::<Particle>() as u32)) as _,
                             ),
                         },
                         count: None,
@@ -212,7 +247,8 @@ impl State {
                 buffers: &[
                     //vertex buffer layout format (2 pos varibales, 2 vel variables)
                     wgpu::VertexBufferLayout {
-                        array_stride: 4 * 4,
+                     //   array_stride: std::mem::size_of::<Particle>() as u64,
+                        array_stride: std::mem::size_of::<Particle>() as u64,
                         step_mode: wgpu::VertexStepMode::Instance,
                         attributes: &wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2],
                     },
@@ -251,15 +287,12 @@ impl State {
         // });
 
         // buffer for all particles data of type [(posx,posy,velx,vely),...]
-        let mut initial_particle_data = vec![0.0f32; (4 * (params.num_particles)) as usize];
-
-        //generate random pos and vel
-        let mut rng = rand::thread_rng();
-        let mut unif = || (rng.gen::<f32>() * 2f32 - 1f32) * params.world_size; // Generate a num (-1, 1)
-        for particle_instance_chunk in initial_particle_data.chunks_mut(4) {
-            particle_instance_chunk[0] = unif(); // posx
-            particle_instance_chunk[1] = unif(); // posy
+        let mut initial_particle_data:Vec<f32> = Vec::new();
+        for i in 0..params.num_particles {
+            initial_particle_data.extend_from_slice(&Particle::new_random(&params).to_slice())
         }
+
+        println!("{:?}", initial_particle_data);
 
         //println!("{:?}", initial_particle_data);
         // creates two buffers of particle data each of size NUM_PARTICLES
@@ -340,11 +373,14 @@ impl State {
     /// resize is called on WindowEvent::Resized events
     pub fn resize(
         &mut self,
-        _sc_desc: &wgpu::SurfaceConfiguration,
+        config: &wgpu::SurfaceConfiguration,
         _device: &wgpu::Device,
-        _queue: &wgpu::Queue,
+        queue: &wgpu::Queue,
     ) {
-        //empty
+        self.camera.aspect_ratio = config.width as f32 / config.height as f32;
+        //println!("New camera zoom: {:?}", example.camera.zoom);
+        queue.write_buffer(&(self.camera_uniform_buffer), 0, bytemuck::cast_slice(&[self.camera.to_slice()]));
+    
     }
     pub fn render(&mut self, view: &wgpu::TextureView, device: &wgpu::Device, queue: &wgpu::Queue) {
         // create render pass descriptor and its color attachments
