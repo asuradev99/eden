@@ -12,6 +12,8 @@ pub struct Camera {
     pub aspect_ratio: f32,
 }
 
+const CIRCLE_RES: u32 = 128;
+
 impl Camera {
     pub fn new(zoom: f32, aspect_ratio: f32) -> Self {
         Camera {
@@ -85,9 +87,21 @@ impl Particle {
 
 }
 
+fn generate_circle(radius: f32) -> [f32; (CIRCLE_RES * 2)  as usize ] {
+    use std::f64::consts::PI;
+    use std::convert::TryInto;
+    let mut coords = Vec::<f32>::new();
+    for i in 0..CIRCLE_RES {
+        coords.push(radius * ((2.0 * PI * i as f64 / CIRCLE_RES as f64) as f32).cos());
+        coords.push(radius * ((2.0 * PI * i as f64 / CIRCLE_RES as f64).sin() as f32).sin());
+    }
+    coords.try_into().unwrap_or_else(|v: Vec<f32>| panic!("Expected a Vec of length {} but it was {}", CIRCLE_RES, v.len()))
+}
+
 pub struct State {
     particle_bind_groups: Vec<wgpu::BindGroup>,
     particle_buffers: Vec<wgpu::Buffer>,
+    circle_buffer: wgpu::Buffer,
     compute_pipeline: wgpu::ComputePipeline,
     render_pipeline: wgpu::RenderPipeline,
     work_group_count: u32,
@@ -251,6 +265,12 @@ impl State {
                         step_mode: wgpu::VertexStepMode::Instance,
                         attributes: &wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2, 2 => Float32, 3 => Float32],
                     },
+
+                    wgpu::VertexBufferLayout {
+                        array_stride: 2 * 4,
+                        step_mode: wgpu::VertexStepMode::Vertex,
+                        attributes: &wgpu::vertex_attr_array![4 => Float32x2],
+                    },
                 ],
             },
             fragment: Some(wgpu::FragmentState {
@@ -277,13 +297,15 @@ impl State {
             entry_point: "main",
         });
 
-        // // buffer for the three 2d triangle vertices of each instance
-        // let vertex_buffer_data = [-0.01f32, -0.02, 0.01, -0.02, 0.00, 0.02];
-        // let vertices_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        //     label: Some("Vertex Buffer"),
-        //     contents: bytemuck::bytes_of(&vertex_buffer_data),
-        //     usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-        // });
+ 
+        //buffer for particle circle coordinates
+
+      //  let circle_buffer_data = [-0.01f32, -0.02, 0.01, -0.02, 0.00, 0.02];
+        let circle_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::bytes_of(&generate_circle( 0.5)),
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        });
 
         // buffer for all particles data of type [(posx,posy,velx,vely),...]
         let mut initial_particle_data = vec![0.0f32; (6 * (params.num_particles)) as usize];
@@ -299,7 +321,7 @@ impl State {
             bigsmall += 1;// posy
         }
 
-        println!("{:?}", initial_particle_data);
+        //println!("{:?}", initial_particle_data);
         // creates two buffers of particle data each of size NUM_PARTICLES
         // the two buffers alternate as dst and src for each frame
 
@@ -359,6 +381,7 @@ impl State {
         State {
             particle_bind_groups,
             particle_buffers,
+            circle_buffer,
             compute_pipeline,
             render_pipeline,
             work_group_count,
@@ -428,8 +451,9 @@ impl State {
             rpass.set_bind_group(0, &self.camera_bind_group, &[]);
             // render dst particles
             rpass.set_vertex_buffer(0, self.particle_buffers[(self.frame_num + 1) % 2].slice(..));
+            rpass.set_vertex_buffer(1, self.circle_buffer.slice(..));
             // the three instance-local vertices ????
-            rpass.draw(0..1, 0..self.params.num_particles);
+            rpass.draw(0..((self.circle_buffer.size() / 8) as u32), 0..self.params.num_particles);
         }
 
         // update frame count

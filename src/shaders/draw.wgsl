@@ -14,15 +14,17 @@ fn main_vs(
     @location(1) particle_vel: vec2<f32>,
     @location(2) mass: f32,
     @location(3) kind: f32,
+    @location(4) circle_coord: vec2<f32>,
     //@location(2) mass: f32,
 ) -> @builtin(position) vec4<f32> {
     let camera_pos_vec = vec2<f32>(camera.x, camera.y);
     var new_pos: vec2<f32> = particle_pos;
-    
+
     if(camera.aspect_ratio > 1.0) {
-        new_pos = vec2<f32>(particle_pos.x / camera.aspect_ratio, particle_pos.y);
+        new_pos = vec2<f32>((particle_pos.x + circle_coord.x) / camera.aspect_ratio, particle_pos.y + circle_coord.y);
     } else {
-        new_pos = vec2<f32>(particle_pos.x, particle_pos.y / camera.aspect_ratio);
+        new_pos = vec2<f32>(particle_pos.x + circle_coord.x, (particle_pos.y + circle_coord.y) / camera.aspect_ratio);
+
     }
     return vec4<f32>((new_pos - camera_pos_vec) * camera.zoom, 0.0, 1.0);
 }

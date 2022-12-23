@@ -83,19 +83,19 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 //   vPos += vVel * params.dt;
 
   // //vPos.x += params.dt / 100.0;
-  // //Wrap around boundary
-  if (vPos.x < -100.0) {
-    vPos.x = 100.0;
-  }
-  if (vPos.x > 100.0) {
-    vPos.x = -100.0;
-  }
-  if (vPos.y < -100.0) {
-    vPos.y = 100.0;
-  }
-  if (vPos.y > 100.0) {
-    vPos.y = -100.0;
-  }
+  // // //Wrap around boundary
+  // if (vPos.x < -100.0) {
+  //   vPos.x = 100.0;
+  // }
+  // if (vPos.x > 100.0) {
+  //   vPos.x = -100.0;
+  // }
+  // if (vPos.y < -100.0) {
+  //   vPos.y = 100.0;
+  // }
+  // if (vPos.y > 100.0) {
+  //   vPos.y = -100.0;
+  // }
 
   // Write back
   particlesDst[index] = Particle(vPos, vVel, particlesSrc[index].mass, particlesSrc[index].kind);
