@@ -93,7 +93,7 @@ fn generate_circle(radius: f32) -> [f32; (CIRCLE_RES * 2)  as usize ] {
     let mut coords = Vec::<f32>::new();
     for i in 0..CIRCLE_RES {
         coords.push(radius * ((2.0 * PI * i as f64 / CIRCLE_RES as f64) as f32).cos());
-        coords.push(radius * ((2.0 * PI * i as f64 / CIRCLE_RES as f64).sin() as f32).sin());
+        coords.push(radius * ((2.0 * PI * i as f64 / CIRCLE_RES as f64) as f32).sin());
     }
     coords.try_into().unwrap_or_else(|v: Vec<f32>| panic!("Expected a Vec of length {} but it was {}", CIRCLE_RES, v.len()))
 }
