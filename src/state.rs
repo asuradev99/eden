@@ -44,7 +44,7 @@ impl Params {
         Params {
             g: 0.1,
             dt: 0.01,
-            num_particles: 100,
+            num_particles: 200,
             shader_buffer: crate::DEFAULT_COMPUTE_SHADER.to_string(),
             world_size: 100.0,
         }
@@ -313,15 +313,16 @@ impl State {
         //generate random pos and vel
         let mut rng = rand::thread_rng();
         let mut unif = || (rng.gen::<f32>() * 2f32 - 1f32) * params.world_size;
-        let mut  bigsmall: u32 = 1; // Generate a num (-1, 1)
+
+        let mut rng = rand::thread_rng();
+        let mut mass_unif = || (rng.gen::<f32>());
         for particle_instance_chunk in initial_particle_data.chunks_mut(6 as usize) {
             particle_instance_chunk[0] = unif(); // posx
             particle_instance_chunk[1] = unif();
-            particle_instance_chunk[4] = unif() * ((bigsmall % 2) as f32) * 100.0 + 1.0 ; 
-            bigsmall += 1;// posy
+            particle_instance_chunk[4] = 1.0 + mass_unif() * 100.0; 
         }
 
-        //println!("{:?}", initial_particle_data);
+        println!("{:?}", initial_particle_data);
         // creates two buffers of particle data each of size NUM_PARTICLES
         // the two buffers alternate as dst and src for each frame
 
@@ -453,7 +454,7 @@ impl State {
             rpass.set_vertex_buffer(0, self.particle_buffers[(self.frame_num + 1) % 2].slice(..));
             rpass.set_vertex_buffer(1, self.circle_buffer.slice(..));
             // the three instance-local vertices ????
-            rpass.draw(0..((self.circle_buffer.size() / 8) as u32), 0..self.params.num_particles);
+            rpass.draw(0..((CIRCLE_RES) as u32), 0..self.params.num_particles);
         }
 
         // update frame count

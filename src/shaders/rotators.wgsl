@@ -53,7 +53,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
      var accel: vec2<f32> = (distance_vector / sqrt(distance_squared)) * mag;
     // var accel: vec2<f32> = mat2x2<f32>(0.0, -1.0, 1.0, 0.0) * accelm;
      aAccum = aAccum + accel;
-     dAccum = dAccum + distance_vector / 50000.0;
+     dAccum = dAccum + distance_vector / 1000.0;
      if(length(aAccum) < 0.0 ) {
         vVel = vec2<f32>(0.0, 0.0);
         break;
