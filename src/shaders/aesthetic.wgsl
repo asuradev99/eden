@@ -49,10 +49,12 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
      var distance = pow(distance_vector, vec2<f32>(2.0, 2.0));
      var distance_squared: f32 = distance.x + distance.y; 
      var dist = sqrt(distance_squared);
-     if (dist <= (sqrt(mass) + sqrt(vMass)) / 1.9 ) {
-         vVel = vVel - ((2.0 * mass / (mass + vMass)) * (dot(vVel - vel, vPos - pos) / (distance_squared + 0.00000001)) * -1.0 * distance_vector); 
+     var col_length = (sqrt(mass) + sqrt(vMass)) / 2.0;
+     if (dist <= col_length) {
+         vVel = vVel - ((2.0 * mass / (mass + vMass)) * (dot(vVel - vel, vPos - pos) / (distance_squared + 0.00000001)) * -1.01 * distance_vector); 
+         vPos = vPos + (-1.0 * distance_vector / dist) * (col_length - dist);
          //vVel = vec2<f32>(1023981012.0, 19283912837.09);
-         continue
+         continue;
      }
      var mag: f32 = vMass * mass * params.G / distance_squared; //(distance_squared);
      var accel: vec2<f32> = (distance_vector / sqrt(distance_squared)) * mag / vMass;
