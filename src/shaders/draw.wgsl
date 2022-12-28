@@ -26,10 +26,10 @@ fn main_vs(
         new_pos = vec2<f32>(new_pos.x, new_pos.y / camera.aspect_ratio);
 
     }
-    return vec4<f32>((new_pos - camera_pos_vec) * camera.zoom, 0.0, 1.0);
+    return vec4<f32>((new_pos - camera_pos_vec) * camera.zoom, kind, 1.0);
 }
 
 @fragment
-fn main_fs() -> @location(0) vec4<f32> {
-    return vec4<f32>(1.0, 1.0, 1.0, 1.0);
+fn main_fs(@builtin(position) clip_position: vec4<f32>) -> @location(0) vec4<f32> {
+    return vec4<f32>(clip_position.z, 1.0 - clip_position.z, clip_position.z, 1.0);
 }

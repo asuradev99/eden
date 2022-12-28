@@ -29,7 +29,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
   var vMass : f32 = particlesSrc[index].mass;
 
   var aAccum : vec2<f32> = vec2<f32>(0.0, 0.0);
-
+  var collided : u32 = 0u;
 
   var i : u32 = 0u;
   loop {
@@ -51,8 +51,9 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
      var dist = sqrt(distance_squared);
      var col_length = (sqrt(mass) + sqrt(vMass)) / 2.0;
      if (dist <= col_length) {
-         vVel = vVel - ((2.0 * mass / (mass + vMass)) * (dot(vVel - vel, vPos - pos) / (distance_squared + 0.00000001)) * -1.01 * distance_vector); 
+        vVel =  vVel - ((2.0 * mass / (mass + vMass)) * (dot(vVel - vel, vPos - pos) / (distance_squared + 0.0000000001)) * -1.01 * distance_vector); 
          vPos = vPos + (-1.0 * distance_vector / dist) * (col_length - dist);
+         collided = 1u;
          //vVel = vec2<f32>(1023981012.0, 19283912837.09);
          continue;
      }
@@ -67,6 +68,9 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
   }
 
   vVel = vVel + aAccum * params.dt; 
+  if(collided != 1u) {
+      vVel = 0.98 * vVel; 
+  }
 
 
   vPos = vPos + vVel * params.dt;

@@ -64,24 +64,25 @@ impl Params {
 struct Particle {
     pos: (f32, f32),
     vel: (f32, f32),
-    //mass: f32
+    mass: f32, 
+    kind: f32
 }
 
 impl Particle {
-    pub fn to_slice(&self) -> [f32; 4] {
-        [self.pos.0, self.pos.1, self.vel.0, self.vel.1] //self.mass]
+    pub fn to_slice(&self) -> [f32; 6] {
+        [self.pos.0, self.pos.1, self.vel.0, self.vel.1, self.mass, self.kind] 
     }
     pub fn new_random(params: &Params) -> Self {
         let mut rng = rand::thread_rng();
         let mut unif = || (rng.gen::<f32>() * 2f32 - 1f32) * params.world_size;
 
         let mut rng = rand::thread_rng();
-        let mut unif_mass = || (rng.gen::<f32>() * 2f32 - 1f32) * 10.0;
 
         Self {
             pos: (unif(), unif()),
             vel: (0.0, 0.0),
-            //mass: 1.0
+            mass: 1.0 + rng.gen::<f32>(), 
+            kind: rng.gen::<f32>(),
         }
     }
 
@@ -307,19 +308,25 @@ impl State {
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
 
-        // buffer for all particles data of type [(posx,posy,velx,vely),...]
-        let mut initial_particle_data = vec![0.0f32; (6 * (params.num_particles)) as usize];
+        // // buffer for all particles data of type [(posx,posy,velx,vely),...]
+        // let mut initial_particle_data = vec![0.0f32; (6 * (params.num_particles)) as usize];
 
-        //generate random pos and vel
-        let mut rng = rand::thread_rng();
-        let mut unif = || (rng.gen::<f32>() * 2f32 - 1f32) * params.world_size;
+        // //generate random pos and vel
+        // let mut rng = rand::thread_rng();
+        // let mut unif = || (rng.gen::<f32>() * 2f32 - 1f32) * params.world_size;
 
-        let mut rng = rand::thread_rng();
-        let mut mass_unif = || (rng.gen::<f32>());
-        for particle_instance_chunk in initial_particle_data.chunks_mut(6 as usize) {
-            particle_instance_chunk[0] = unif(); // posx
-            particle_instance_chunk[1] = unif();
-            particle_instance_chunk[4] = 1.0 + mass_unif() * 100.0; 
+        // let mut rng = rand::thread_rng();
+        // let mut mass_unif = || (rng.gen::<f32>());
+        // for particle_instance_chunk in initial_particle_data.chunks_mut(6 as usize) {
+        //     particle_instance_chunk[0] = unif(); // posx
+        //     particle_instance_chunk[1] = unif();
+        //     particle_instance_chunk[4] = 1.0 + mass_unif() * 100.0; 
+        // }
+
+        let mut initial_particle_data: Vec<f32>  = Vec::new();
+
+        for _ in 0..params.num_particles {
+            initial_particle_data.extend_from_slice(&Particle::new_random(&params).to_slice())
         }
 
         println!("{:?}", initial_particle_data);
