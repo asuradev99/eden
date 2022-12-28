@@ -1,450 +1,114 @@
-use std::future::Future;
-#[cfg(not(target_arch = "wasm32"))]
-use std::time::Instant;
+use rand::prelude::*;
 
-use winit::{
-    event::{self, WindowEvent, MouseButton, ElementState},
-    event_loop::{ControlFlow, EventLoop}, dpi::PhysicalPosition,
-};
 
-const DEFAULT_COMPUTE_SHADER: &str = include_str!("shaders/aesthetic.wgsl");
-
-#[allow(dead_code)]
-pub fn cast_slice<T>(data: &[T]) -> &[u8] {
-    use std::{mem::size_of, slice::from_raw_parts};
-
-    unsafe { from_raw_parts(data.as_ptr() as *const u8, data.len() * size_of::<T>()) }
+#[derive(Clone, Copy, Debug)]
+pub struct Camera {
+    pub x: f32,
+    pub y: f32,
+    pub zoom: f32,
+    pub aspect_ratio: f32,
 }
 
-#[allow(dead_code)]
-pub enum ShaderStage {
-    Vertex,
-    Fragment,
-    Compute,
-}
-mod gui; 
-mod state; 
+pub const CIRCLE_RES: u32 = 128;
+pub const DEFAULT_COMPUTE_SHADER: &str = include_str!("shaders/aesthetic.wgsl");
 
-
-struct Setup {
-    window: winit::window::Window,
-    event_loop: EventLoop<()>,
-    instance: wgpu::Instance,
-    size: winit::dpi::PhysicalSize<u32>,
-    surface: wgpu::Surface,
-    adapter: wgpu::Adapter,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-}
-
-async fn setup(title: &str) -> Setup {
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        env_logger::init();
-    };
-
-    //create main event loop for winit()
-    let event_loop = EventLoop::new();
-    
-   // let monitor = event_loop.primary_monitor().unwrap();
-   // let video_mode = monitor.video_modes().next();
-   // let size = video_mode.clone().map_or(winit::dpi::PhysicalSize::new(800, 600), |vm| vm.size());
-    let builder = winit::window::WindowBuilder::new()
-        .with_visible(true)
-        .with_title("The universe, with a heck of a lot of rounding errors")
-        //   .with_fullscreen(video_mode.map(|vm| winit::window::Fullscreen::Exclusive(vm)));
-        .with_inner_size(winit::dpi::PhysicalSize {
-            width: 1920, 
-            height: 1080
-        });
-   
-    #[cfg(windows_OFF)] // TODO
-    {
-        use winit::platform::windows::WindowBuilderExtWindows;
-        builder = builder.with_no_redirection_bitmap(true);
-    }
-    let window = builder.build(&event_loop).unwrap();
-
-
-    log::info!("Initializing the surface...");
-
-    let backend = wgpu::util::backend_bits_from_env().unwrap_or_else(wgpu::Backends::all);
-
-    let instance = wgpu::Instance::new(backend);
-    let (size, surface) = unsafe {
-        let size = window.inner_size();
-
-        let surface = instance.create_surface(&window);
-
-        (size, surface)
-    };
-
-    let adapter =
-        wgpu::util::initialize_adapter_from_env_or_default(&instance, backend, Some(&surface))
-            .await
-            .expect("No suitable GPU adapters found on the system!");
-
-    
-    let adapter_info = adapter.get_info();
-    println!("Using {} ({:?})", adapter_info.name, adapter_info.backend);
-    
-
-    let optional_features = wgpu::Features::empty();
-    let required_features = wgpu::Features::empty();
-    let adapter_features = adapter.features();
-    // assert!(
-    //     adapter_features.contains(required_features),
-    //     "Adapter does not support required features for this example: {:?}",
-    //     required_features - adapter_features
-    // );
-
-    // let required_downlevel_capabilities = E::required_downlevel_capabilities();
-    // let downlevel_capabilities = adapter.get_downlevel_capabilities();
-    // assert!(
-    //     downlevel_capabilities.shader_model >= required_downlevel_capabilities.shader_model,
-    //     "Adapter does not support the minimum shader model required to run this example: {:?}",
-    //     required_downlevel_capabilities.shader_model
-    // );
-    // assert!(
-    //     downlevel_capabilities
-    //         .flags
-    //         .contains(required_downlevel_capabilities.flags),
-    //     "Adapter does not support the downlevel capabilities required to run this example: {:?}",
-    //     required_downlevel_capabilities.flags - downlevel_capabilities.flags
-    // );
-
-    // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the surface.
-    let needed_limits = state::State::required_limits().using_resolution(adapter.limits());
-
-    let trace_dir = std::env::var("WGPU_TRACE");
-    let (device, queue) = adapter
-        .request_device(
-            &wgpu::DeviceDescriptor {
-                label: None,
-                features: (optional_features & adapter_features) | required_features,
-                limits: needed_limits,
-            },
-            trace_dir.ok().as_ref().map(std::path::Path::new),
-        )
-        .await
-        .expect("Unable to find a suitable GPU adapter!");
-
-    
-    Setup {
-        window,
-        event_loop,
-        instance,
-        size,
-        surface,
-        adapter,
-        device,
-        queue,
-        
-    }
-}
-
-fn start(
-    #[cfg(not(target_arch = "wasm32"))] Setup {
-        window,
-        event_loop,
-        instance,
-        size,
-        surface,
-        adapter,
-        device,
-        queue,
-    }: Setup,
-) {
-    let spawner = Spawner::new();
-    let mut config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface.get_supported_formats(&adapter)[0],
-            width: size.width,
-            height: size.height,
-            present_mode: wgpu::PresentMode::Fifo,
-            alpha_mode: surface.get_supported_alpha_modes(&adapter)[0],
-    };
-    surface.configure(&device, &config);
-    
-
-
-    let mut test_ui = gui::Gui::new(&window, &device, &config);
-    log::info!("Initializing the example...");
-
-    let params: state::Params = state::Params::new();
-
-    let mut example = state::State::init(params, &config, &adapter, &device, &queue);
-
-    let mut last_frame_inst = Instant::now();
-    let (mut frame_count, mut accum_time) = (0, 0.0);
-
-    log::info!("Entering render loop...");
-
-    let mut mouseState: bool = false;
-    let mut lastMousePosition: PhysicalPosition<f64> = PhysicalPosition { x: -1.0, y: -1.0 };
-
-    event_loop.run(move |event, _, control_flow| {
-
-        test_ui.platform.handle_event(&event);
-        let _ = (&instance, &adapter); // force ownership by the closure
-        //platform.handle_event(&event); //ui handle event
-        *control_flow = ControlFlow::Poll;
-        match event {
-            event::Event::RedrawEventsCleared => {
-                spawner.run_until_stalled();
-                window.request_redraw();
-            }
-            event::Event::WindowEvent {
-                event:
-                    WindowEvent::Resized(size)
-                    | WindowEvent::ScaleFactorChanged {
-                        new_inner_size: &mut size,
-                        ..
-                    },
-                ..
-            } => {
-                config.width = size.width.max(1);
-                config.height = size.height.max(1);
-                example.resize(&config, &device, &queue);
-                surface.configure(&device, &config);
-            }
-            event::Event::WindowEvent { event, .. } => match event {
-                WindowEvent::KeyboardInput {
-                    input:
-                        event::KeyboardInput {
-                            virtual_keycode: Some(event::VirtualKeyCode::Escape),
-                            state: event::ElementState::Pressed,
-                            ..
-                        },
-                    ..
-                }
-                | WindowEvent::CloseRequested => {
-                    *control_flow = ControlFlow::Exit;
-                }
-                WindowEvent::KeyboardInput {
-                    input:
-                        event::KeyboardInput {
-                            virtual_keycode: Some(event::VirtualKeyCode::R),
-                            state: event::ElementState::Pressed,
-                            ..
-                        },
-                    ..
-                } => {
-                    //println!("{:#?}", instance.generate_report());
-                   let params = test_ui.gen_params();
-                   example = state::State::init(params, &config, &adapter, &device, &queue);
-                }
-
-                WindowEvent::MouseWheel { delta, .. } => {
-                    match delta {
-                        event::MouseScrollDelta::LineDelta(x, y) => {
-                            example.camera.zoom *= f32::powf(1.25, y);
-                            //println!("New camera zoom: {:?}", example.camera.zoom);
-                            queue.write_buffer(&(example.camera_uniform_buffer), 0, bytemuck::cast_slice(&[example.camera.to_slice()]));
-                        }
-                        _ => {}
-                    }
-                }
-                WindowEvent::MouseInput { device_id, state,  button, modifiers } => {
-                    match button {
-                        MouseButton::Right => {
-                            match state {
-                                ElementState::Pressed => {mouseState = true;                     println!("{}", mouseState);}
-                                ElementState::Released => {mouseState = false; 
-                                    lastMousePosition = PhysicalPosition::<f64>{x: -1.0, y: 0.0};      
-                                                 println!("{}", mouseState);
-                                                }
-                            }
-                        }
-                        _ => {}
-                    }
-
-                }
-                WindowEvent::CursorMoved { device_id, position, modifiers } => {
-                    if(mouseState) {
-                        if(lastMousePosition.x != -1.0) {
-                            let deltaPosition = PhysicalPosition::<f64>{
-                                x: (position.x - lastMousePosition.x) / (config.width as f64), 
-                                y: (position.y - lastMousePosition.y) / (config.height as f64),
-                            };
-
-                            example.camera.x -= (deltaPosition.x as f32 / example.camera.zoom ) * 2.0;
-                            example.camera.y += (deltaPosition.y as f32 / example.camera.zoom) * 2.0;
-
-                            queue.write_buffer(&(example.camera_uniform_buffer), 0, bytemuck::cast_slice(&[example.camera.to_slice()]));
-
-                            lastMousePosition = position;
-                            println!("{:?}", deltaPosition);
-
-                        } else {
-                            lastMousePosition = position;
-                        }
-                    }
-                    
-                }  
-                _ => {
-                    example.update(event);
-                }
-            }
-            event::Event::RedrawRequested(_) => {
-                //platform.update_time(start_time.elapsed().as_secs_f64());
-                {
-                    accum_time += last_frame_inst.elapsed().as_secs_f32();
-                    last_frame_inst = Instant::now();
-                    frame_count += 1;
-                    if frame_count == 100 {
-                        // println!(
-                        //     "Avg frame time {}ms",
-                        //     accum_time * 1000.0 / frame_count as f32
-                        // );
-                        accum_time = 0.0;
-                        frame_count = 0;
-                    }
-                }
-
-                let frame = match surface.get_current_texture() {
-                    Ok(frame) => frame,
-                    Err(_) => {
-                        surface.configure(&device, &config);
-                        surface
-                            .get_current_texture()
-                            .expect("Failed to acquire next surface texture!")
-                    }
-                };
-                let view = frame
-                    .texture
-                    .create_view(&wgpu::TextureViewDescriptor::default());
-                      //render ui
-
-                example.render(&view, &device, &queue);
-                test_ui.render(&window, &device, &view, &queue);
-
-                frame.present();
-                
-                test_ui.cleanup();
-
-                if(test_ui.state == gui::OutputState::ReloadRequired) {  
-                    let params = test_ui.gen_params();
-                    example = state::State::init(params, &config, &adapter, &device, &queue);
-                }
-                #[cfg(target_arch = "wasm32")]
-                {
-                    if let Some(offscreen_canvas_setup) = &offscreen_canvas_setup {
-                        let image_bitmap = offscreen_canvas_setup
-                            .offscreen_canvas
-                            .transfer_to_image_bitmap()
-                            .expect("couldn't transfer offscreen canvas to image bitmap.");
-                        offscreen_canvas_setup
-                            .bitmap_renderer
-                            .transfer_from_image_bitmap(&image_bitmap);
-
-            
-                    }
-                }
-            }
-            _ => {}
-
-                    
+impl Camera {
+    pub fn new(zoom: f32, aspect_ratio: f32) -> Self {
+        Camera {
+            x: 0.0,
+            y: 0.0,
+            zoom: zoom,
+            aspect_ratio: aspect_ratio,
         }
     }
-    );
+
+    pub fn to_slice(&self) -> [f32; 4] {
+        [self.x, self.y, self.zoom, self.aspect_ratio]
+    }
+}
+
+#[derive(Clone, Debug)]
+
+pub struct Params {
+    pub attraction_matrix: Vec<f32>,
+    pub dt: f32,
+    pub num_particles: u32,
+    pub world_size: f32,
+    pub shader_buffer: String,
 }
 
 
+impl Params {
+    pub fn new() -> Self {
+        Params {
+            attraction_matrix: vec![1.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0],
+            dt: 0.01,
+            num_particles: 20000,
+            shader_buffer: DEFAULT_COMPUTE_SHADER.to_string(),
+            world_size: 100.0,
+        }
+    }
+    pub fn to_slice(&self) -> [f32; 1] {
+        [self.dt]
+    }
 
-pub struct Spawner<'a> {
-    executor: async_executor::LocalExecutor<'a>,
+    pub fn attraction_matrix_slice(&self) -> &[f32] {
+        self.attraction_matrix.as_slice()
+    }
 }
 
-impl<'a> Spawner<'a> {
-    fn new() -> Self {
+// const PARAMS: [f32; 2] = [
+//     0.001, //dt
+//     0.01//Gravitational constant
+// ];
+
+/// Example struct holds references to wgpu resources and frame persistent data
+/// 
+/// 
+#[derive(Clone, Copy, Debug)]
+
+pub struct Particle {
+    pos: (f32, f32),
+    vel: (f32, f32),
+    mass: f32, 
+    kind: f32
+}
+
+impl Particle {
+    pub fn to_slice(&self) -> [f32; 6] {
+        [self.pos.0, self.pos.1, self.vel.0, self.vel.1, self.mass, self.kind] 
+    }
+    pub fn new_random(params: &Params) -> Self {
+        let mut rng = rand::thread_rng();
+        let mut unif = || (rng.gen::<f32>() * 2f32 - 1f32) * params.world_size;
+        let max_types: f32 = f32::sqrt(params.attraction_matrix.len() as f32 / 4.0); 
+        let mut rng = rand::thread_rng();
+
         Self {
-            executor: async_executor::LocalExecutor::new(),
+            pos: (unif(), unif()),
+            vel: (0.0, 0.0),
+            mass: 1.0, 
+            kind: (rng.gen_range(0..max_types as u32) as f32) / (max_types as f32) ,
+        }
+    }
+    pub fn new() -> Self {
+        Self{
+            pos: (0.0, 0.0),
+            vel: (0.0, 0.0),
+            mass: 100.0, 
+            kind: 0.01,
         }
     }
 
-    #[allow(dead_code)]
-    pub fn spawn_local(&self, future: impl Future<Output = ()> + 'a) {
-        self.executor.spawn(future).detach();
-    }
-
-    fn run_until_stalled(&self) {
-        while self.executor.try_tick() {}
-    }
 }
 
-#[cfg(target_arch = "wasm32")]
-pub struct Spawner {}
-
-#[cfg(target_arch = "wasm32")]
-impl Spawner {
-    fn new() -> Self {
-        Self {}
+pub fn generate_circle(radius: f32) -> [f32; (CIRCLE_RES * 2)  as usize ] {
+    use std::f64::consts::PI;
+    use std::convert::TryInto;
+    let mut coords = Vec::<f32>::new();
+    for i in 0..CIRCLE_RES {
+        coords.push(radius * ((2.0 * PI * i as f64 / CIRCLE_RES as f64) as f32).cos());
+        coords.push(radius * ((2.0 * PI * i as f64 / CIRCLE_RES as f64) as f32).sin());
     }
-
-    #[allow(dead_code)]
-    pub fn spawn_local(&self, future: impl Future<Output = ()> + 'static) {
-        wasm_bindgen_futures::spawn_local(future);
-    }
+    coords.try_into().unwrap_or_else(|v: Vec<f32>| panic!("Expected a Vec of length {} but it was {}", CIRCLE_RES, v.len()))
 }
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn run(title: &str) {
-    let setup = pollster::block_on(setup(title));
-    start(setup);
-}
-
-#[cfg(target_arch = "wasm32")]
-pub fn run(title: &str) {
-    use wasm_bindgen::{prelude::*, JsCast};
-
-    let title = title.to_owned();
-    wasm_bindgen_futures::spawn_local(async move {
-        let setup = setup(&title).await;
-        let start_closure = Closure::once_into_js(move || start(setup));
-
-        // make sure to handle JS exceptions thrown inside start.
-        // Otherwise wasm_bindgen_futures Queue would break and never handle any tasks again.
-        // This is required, because winit uses JS exception for control flow to escape from `run`.
-        if let Err(error) = call_catch(&start_closure) {
-            let is_control_flow_exception = error.dyn_ref::<js_sys::Error>().map_or(false, |e| {
-                e.message().includes("Using exceptions for control flow", 0)
-            });
-
-            if !is_control_flow_exception {
-                web_sys::console::error_1(&error);
-            }
-        }
-
-        #[wasm_bindgen]
-        extern "C" {
-            #[wasm_bindgen(catch, js_namespace = Function, js_name = "prototype.call.call")]
-            fn call_catch(this: &JsValue) -> Result<(), JsValue>;
-        }
-    });
-}
-
-#[cfg(target_arch = "wasm32")]
-/// Parse the query string as returned by `web_sys::window()?.location().search()?` and get a
-/// specific key out of it.
-pub fn parse_url_query_string<'a>(query: &'a str, search_key: &str) -> Option<&'a str> {
-    let query_string = query.strip_prefix('?')?;
-
-    for pair in query_string.split('&') {
-        let mut pair = pair.split('=');
-        let key = pair.next()?;
-        let value = pair.next()?;
-
-        if key == search_key {
-            return Some(value);
-        }
-    }
-
-    None
-}
-
-
-// This allows treating the framework as a standalone example,
-// thus avoiding listing the example names in `Cargo.toml`.
-#[allow(dead_code)]
-fn main() {}

@@ -1,115 +1,21 @@
 //use nanorand::{Rng, WyRand};
-use rand::prelude::*;
 use std::{borrow::Cow, mem};
 
 use wgpu::util::DeviceExt;
 
-#[derive(Debug, Copy, Clone)]
-pub struct Camera {
-    pub x: f32,
-    pub y: f32,
-    pub zoom: f32,
-    pub aspect_ratio: f32,
-}
-
-const CIRCLE_RES: u32 = 128;
-
-impl Camera {
-    pub fn new(zoom: f32, aspect_ratio: f32) -> Self {
-        Camera {
-            x: 0.0,
-            y: 0.0,
-            zoom: zoom,
-            aspect_ratio: aspect_ratio,
-        }
-    }
-
-    pub fn to_slice(&self) -> [f32; 4] {
-        [self.x, self.y, self.zoom, self.aspect_ratio]
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Params {
-    pub g: f32,
-    pub dt: f32,
-    pub num_particles: u32,
-    pub world_size: f32,
-    pub shader_buffer: String,
-}
-
-
-impl Params {
-    pub fn new() -> Self {
-        Params {
-            g: 0.1,
-            dt: 0.01,
-            num_particles: 200,
-            shader_buffer: crate::DEFAULT_COMPUTE_SHADER.to_string(),
-            world_size: 100.0,
-        }
-    }
-    pub fn to_slice(&self) -> [f32; 2] {
-        [self.g, self.dt]
-    }
-}
-
-// const PARAMS: [f32; 2] = [
-//     0.001, //dt
-//     0.01//Gravitational constant
-// ];
-
-/// Example struct holds references to wgpu resources and frame persistent data
-/// 
-struct Particle {
-    pos: (f32, f32),
-    vel: (f32, f32),
-    mass: f32, 
-    kind: f32
-}
-
-impl Particle {
-    pub fn to_slice(&self) -> [f32; 6] {
-        [self.pos.0, self.pos.1, self.vel.0, self.vel.1, self.mass, self.kind] 
-    }
-    pub fn new_random(params: &Params) -> Self {
-        let mut rng = rand::thread_rng();
-        let mut unif = || (rng.gen::<f32>() * 2f32 - 1f32) * params.world_size;
-
-        let mut rng = rand::thread_rng();
-
-        Self {
-            pos: (unif(), unif()),
-            vel: (0.0, 0.0),
-            mass: 1.0 + rng.gen::<f32>(), 
-            kind: rng.gen::<f32>(),
-        }
-    }
-
-}
-
-fn generate_circle(radius: f32) -> [f32; (CIRCLE_RES * 2)  as usize ] {
-    use std::f64::consts::PI;
-    use std::convert::TryInto;
-    let mut coords = Vec::<f32>::new();
-    for i in 0..CIRCLE_RES {
-        coords.push(radius * ((2.0 * PI * i as f64 / CIRCLE_RES as f64) as f32).cos());
-        coords.push(radius * ((2.0 * PI * i as f64 / CIRCLE_RES as f64) as f32).sin());
-    }
-    coords.try_into().unwrap_or_else(|v: Vec<f32>| panic!("Expected a Vec of length {} but it was {}", CIRCLE_RES, v.len()))
-}
-
+#[derive(Debug)]
 pub struct State {
     particle_bind_groups: Vec<wgpu::BindGroup>,
-    particle_buffers: Vec<wgpu::Buffer>,
+    pub active_particles: u32, 
+    pub particle_buffers: Vec<wgpu::Buffer>,
     circle_buffer: wgpu::Buffer,
     compute_pipeline: wgpu::ComputePipeline,
     render_pipeline: wgpu::RenderPipeline,
     work_group_count: u32,
     frame_num: usize,
-    pub camera: Camera,
+    pub camera: eden::Camera,
     pub camera_uniform_buffer: wgpu::Buffer,
-    pub params: Params,
+    pub params: eden::Params,
     camera_bind_group: wgpu::BindGroup,
 }
 
@@ -132,17 +38,18 @@ impl State {
     }
 
     pub fn init(
-        params: Params,
+        params: eden::Params,
         config: &wgpu::SurfaceConfiguration,
         _adapter: &wgpu::Adapter,
         device: &wgpu::Device,
         _queue: &wgpu::Queue,
     ) -> Self {
 
-        println!("{}", mem::size_of::<Particle>());
+        println!("{}", mem::size_of::<eden::Particle>());
         //create parameters
         let params = params;
         let params_slice = params.to_slice();
+        let params_attraction_matrix = params.attraction_matrix_slice();
 
         //initialize compute shader module
         let compute_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -159,7 +66,14 @@ impl State {
         //set up uniform buffer to store global parameters
         let sim_param_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Parameter Buffer"),
-            contents: bytemuck::cast_slice(&(params_slice)),
+            contents: bytemuck::cast_slice(&params_slice),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        //set up uniform buffer to store global parameters
+        let attraction_matrix_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Parameter Buffer"),
+            contents: bytemuck::cast_slice(params_attraction_matrix),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
@@ -167,7 +81,7 @@ impl State {
        // let camera = Camera::new(1.0 / (params.world_size * 1.5));
        let aspect_ratio:f32 = config.width as f32 / config.height as f32;
        println!("{} / {} = {}", config.width, config.height, aspect_ratio);
-       let camera = Camera::new(1.0 / params.world_size, aspect_ratio);
+       let camera = eden::Camera::new(1.0 / params.world_size, aspect_ratio);
         let camera_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Buffer"),
             contents: bytemuck::cast_slice(&(camera.to_slice())),
@@ -214,6 +128,18 @@ impl State {
                             min_binding_size: wgpu::BufferSize::new(
                                 (params.num_particles * 24) as _,
                             ),
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: wgpu::BufferSize::new(
+                                (params_attraction_matrix.len() * mem::size_of::<f32>()) as _,
+                            ),  
                         },
                         count: None,
                     },
@@ -304,7 +230,7 @@ impl State {
       //  let circle_buffer_data = [-0.01f32, -0.02, 0.01, -0.02, 0.00, 0.02];
         let circle_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
-            contents: bytemuck::bytes_of(&generate_circle( 0.5)),
+            contents: bytemuck::bytes_of(&eden::generate_circle( 0.5)),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
 
@@ -326,7 +252,7 @@ impl State {
         let mut initial_particle_data: Vec<f32>  = Vec::new();
 
         for _ in 0..params.num_particles {
-            initial_particle_data.extend_from_slice(&Particle::new_random(&params).to_slice())
+            initial_particle_data.extend_from_slice(&eden::Particle::new_random(&params).to_slice())
         }
 
         println!("{:?}", initial_particle_data);
@@ -376,6 +302,10 @@ impl State {
                         binding: 2,
                         resource: particle_buffers[(i + 1) % 2].as_entire_binding(), // bind to opposite buffer
                     },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: attraction_matrix_buffer.as_entire_binding(), // bind to opposite buffer
+                    },
                 ],
                 label: None,
             }));
@@ -384,10 +314,12 @@ impl State {
         // calculates number of work groups from PARTICLES_PER_GROUP constant
         let work_group_count = u32::min(params.num_particles, 65535);
 
+        let active_particles: u32 = params.num_particles;
         // returns Example struct and No encoder commands
 
         State {
             particle_bind_groups,
+            active_particles,
             particle_buffers,
             circle_buffer,
             compute_pipeline,
@@ -461,7 +393,7 @@ impl State {
             rpass.set_vertex_buffer(0, self.particle_buffers[(self.frame_num + 1) % 2].slice(..));
             rpass.set_vertex_buffer(1, self.circle_buffer.slice(..));
             // the three instance-local vertices ????
-            rpass.draw(0..((CIRCLE_RES) as u32), 0..self.params.num_particles);
+            rpass.draw(0..((eden::CIRCLE_RES) as u32), 0..self.params.num_particles);
         }
 
         // update frame count

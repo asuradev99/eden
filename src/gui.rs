@@ -5,13 +5,14 @@ use egui_winit_platform::{Platform, PlatformDescriptor};
 
 use winit::window::Window;
 
+
 use wgpu::{Device, SurfaceConfiguration, TextureView};
 #[derive(PartialEq)]
 pub enum OutputState {
     ReloadRequired,
     None,
 }
-use crate::state::Params;
+use eden::Params;
 
 pub struct Gui {
     pub platform: Platform,
@@ -64,10 +65,11 @@ impl Gui {
                         ui.label("World Size: ");
                         ui.add(egui::DragValue::new(&mut self.inner_params.world_size));
                         ui.end_row();
-
-                        ui.label("Gravitational Constant: ");
-                        ui.add(egui::DragValue::new(&mut self.inner_params.g));
-                        ui.end_row();
+                        for i in 0..self.inner_params.attraction_matrix.len() / 4 {
+                            ui.label(format!("Gravitational Constant {}: ", i));
+                            ui.add(egui::DragValue::new(&mut self.inner_params.attraction_matrix[i * 4]));
+                            ui.end_row();
+                        }
 
                         ui.label("Delta Time: ");
                         ui.add(egui::DragValue::new(&mut self.inner_params.dt));

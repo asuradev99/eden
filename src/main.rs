@@ -1,4 +1,7 @@
 
+mod gui;
+mod state;
+mod sim; 
 fn main () {
-    eden::run("particles");
+    sim::run("particles");
 }
