@@ -41,11 +41,11 @@ pub struct Params {
 impl Params {
     pub fn new() -> Self {
         Params {
-            attraction_matrix: vec![1.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0],
-            dt: 0.01,
+            attraction_matrix: vec![2.0, 0.0, 0.0, 0.0],
+            dt: 0.001,
             num_particles: 20000,
             shader_buffer: DEFAULT_COMPUTE_SHADER.to_string(),
-            world_size: 100.0,
+            world_size: 4.0,
         }
     }
     pub fn to_slice(&self) -> [f32; 1] {
@@ -85,9 +85,9 @@ impl Particle {
         let mut rng = rand::thread_rng();
 
         Self {
-            pos: (unif(), unif()),
+            pos: (unif(), unif() / 3.0),
             vel: (0.0, 0.0),
-            mass: 1.0, 
+            mass: 0.001, 
             kind: (rng.gen_range(0..max_types as u32) as f32) / (max_types as f32) ,
         }
     }

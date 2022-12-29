@@ -74,7 +74,7 @@ impl State {
         let attraction_matrix_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Parameter Buffer"),
             contents: bytemuck::cast_slice(params_attraction_matrix),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
         });
 
         //set up camera buffer
@@ -135,7 +135,7 @@ impl State {
                         binding: 3,
                         visibility: wgpu::ShaderStages::COMPUTE,
                         ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
                             has_dynamic_offset: false,
                             min_binding_size: wgpu::BufferSize::new(
                                 (params_attraction_matrix.len() * mem::size_of::<f32>()) as _,
