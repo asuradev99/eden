@@ -65,9 +65,15 @@ impl Gui {
                         ui.label("World Size: ");
                         ui.add(egui::DragValue::new(&mut self.inner_params.world_size));
                         ui.end_row();
-                        for i in 0..self.inner_params.attraction_matrix.len() / 4 {
-                            ui.label(format!("Gravitational Constant {}: ", i));
-                            ui.add(egui::DragValue::new(&mut self.inner_params.attraction_matrix[i * 4]));
+                        let max_types: usize = ((self.inner_params.attraction_matrix.len() / 4) as f32).sqrt() as usize;
+                        for i in 0..max_types {
+                            ui.label(format!("Particle Type {} Forces: ", i));
+                            ui.horizontal(|ui| {
+                                for j in 0..max_types  {
+                                    ui.add(egui::DragValue::new(&mut self.inner_params.attraction_matrix[i * 4 * max_types + j * 4]));
+                                } 
+                            });
+                            
                             ui.end_row();
                         }
 

@@ -63,15 +63,15 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
      var dist = sqrt(distance_squared);
      var col_length = (sqrt(mass) + sqrt(vMass)) / 2.0;
      if (dist <= col_length) {
-        vVel =  vVel - ((2.0 * mass / (mass + vMass)) * (dot(vVel - vel, vPos - pos) / (distance_squared + 0.0000000000001)) * -1.01 * distance_vector); 
+        vVel =  vVel - ((2.0 * mass / (mass + vMass)) * (dot(vVel - vel, vPos - pos) / (distance_squared + 0.0000000000001)) * -0.4 * distance_vector); 
          cAccum = cAccum + (-1.0 * distance_vector / dist) * (col_length - dist) / 2.0;
          collided = 1u;
          //vVel = vec2<f32>(1023981012.0, 19283912837.09);
          continue;
      }
      var mat_index = vKind * max_types + kind; 
-     var mag: f32 = vMass * mass * attraction_matrix[mat_index].elem / distance_squared; //(distance_squared);
-     var accel: vec2<f32> = (distance_vector / sqrt(distance_squared)) * mag / vMass;
+     var mag: f32 = vMass * mass * attraction_matrix[mat_index].elem * cos(distance_squared); //(distance_squared);
+     var accel: vec2<f32> = (distance_vector / sqrt(distance_squared + 0.0000000000001)) * mag / vMass;
     // var accel: vec2<f32> = mat2x2<f32>(0.0, -1.0, 1.0, 0.0) * accelm;
      aAccum = aAccum + accel;
      
