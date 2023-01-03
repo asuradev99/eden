@@ -10,7 +10,7 @@ pub struct Camera {
 }
 
 pub const CIRCLE_RES: u32 = 128;
-pub const DEFAULT_COMPUTE_SHADER: &str = include_str!("shaders/aesthetic.wgsl");
+pub const DEFAULT_COMPUTE_SHADER: &str = include_str!("shaders/lennardjones.wgsl");
 
 impl Camera {
     pub fn new(zoom: f32, aspect_ratio: f32) -> Self {
@@ -35,21 +35,55 @@ pub struct Params {
     pub num_particles: u32,
     pub world_size: f32,
     pub shader_buffer: String,
+    pub well_depth: f32, 
+    pub attract_coeff: f32, 
+    pub repulse_coeff: f32,
+    pub friction_coeff: f32,
+    pub num_types: u32,
+
 }
 
 
 impl Params {
     pub fn new() -> Self {
+
+        let mut attraction_matrix: Vec<f32> = Vec::new(); 
+        let mut rng = rand::thread_rng();
+        let mut unif = || (rng.gen::<f32>() * 2f32 - 1f32); 
+        let num_types: u32 = 2;
+        for i in 0..num_types.pow(2) {
+            attraction_matrix.extend_from_slice(&[unif(), 0.0, 0.0, 0.0]);
+        }
+
+        println!("{:?}", attraction_matrix);
         Params {
-            attraction_matrix: vec![2.0, 0.0, 0.0, 0.0],
+            num_types: num_types,
+            attraction_matrix: attraction_matrix,
             dt: 0.001,
             num_particles: 20000,
             shader_buffer: DEFAULT_COMPUTE_SHADER.to_string(),
-            world_size: 4.0,
+            world_size: 100.0,
+            well_depth: 5000.0, 
+            attract_coeff: 0.3,
+            repulse_coeff: 0.4, 
+            friction_coeff: 0.9,
         }
     }
-    pub fn to_slice(&self) -> [f32; 1] {
-        [self.dt]
+
+    pub fn randomize_matrix(&mut self) {
+        let mut attraction_matrix: Vec<f32> = Vec::new(); 
+        let mut rng = rand::thread_rng();
+        let mut unif = || (rng.gen::<f32>() * 2f32 - 1f32); 
+ 
+        for i in 0..self.num_types.pow(2) {
+            attraction_matrix.extend_from_slice(&[unif(), 0.0, 0.0, 0.0]);
+        }
+
+        self.attraction_matrix = attraction_matrix;
+    }
+    
+    pub fn to_slice(&self) -> [f32; 5] {
+        [self.dt, self.well_depth, self.attract_coeff, self.repulse_coeff, self.friction_coeff]
     }
 
     pub fn attraction_matrix_slice(&self) -> &[f32] {
@@ -87,7 +121,7 @@ impl Particle {
         Self {
             pos: (unif(), unif()),
             vel: (0.0, 0.0),
-            mass: 0.001, 
+            mass: 1.0, 
             kind: (rng.gen_range(0..max_types as u32) as f32) / (max_types as f32) ,
         }
     }

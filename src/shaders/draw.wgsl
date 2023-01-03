@@ -31,5 +31,5 @@ fn main_vs(
 
 @fragment
 fn main_fs(@builtin(position) clip_position: vec4<f32>) -> @location(0) vec4<f32> {
-    return vec4<f32>(0.0, 1.0 - clip_position.z, 1.0, 0.1);
+    return vec4<f32>(clip_position.z, 1.0 - clip_position.z, clip_position.z, 0.1);
 }

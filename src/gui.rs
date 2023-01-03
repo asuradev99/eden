@@ -65,6 +65,11 @@ impl Gui {
                         ui.label("World Size: ");
                         ui.add(egui::DragValue::new(&mut self.inner_params.world_size));
                         ui.end_row();
+
+                        ui.label("Number of Types: ");
+                        ui.add(egui::DragValue::new(&mut self.inner_params.num_types));
+                        ui.end_row();
+
                         let max_types: usize = ((self.inner_params.attraction_matrix.len() / 4) as f32).sqrt() as usize;
                         for i in 0..max_types {
                             ui.label(format!("Particle Type {} Forces: ", i));
@@ -78,15 +83,36 @@ impl Gui {
                         }
 
                         ui.label("Delta Time: ");
-                        ui.add(egui::DragValue::new(&mut self.inner_params.dt));
+                        ui.add(egui::DragValue::new(&mut self.inner_params.dt).max_decimals(5));
                         ui.end_row();
 
                         ui.label("Number of Particles: ");
                         ui.add(egui::DragValue::new(&mut self.inner_params.num_particles));
+                        ui.end_row();
+
+                        ui.label("(Lennard-Jones) Well Depth: ");
+                        ui.add(egui::DragValue::new(&mut self.inner_params.well_depth));
+                        ui.end_row();
+
+                        ui.label("(Lennard-Jones): Attraction Coefficient");
+                        ui.add(egui::Slider::new(&mut self.inner_params.attract_coeff, 0.0..=1.0));
+                        ui.end_row();
+
+                        ui.label("(Lennard-Jones): Repulsion Coefficient");
+                        ui.add(egui::Slider::new(&mut self.inner_params.repulse_coeff, 0.0..=1.0));
+                        ui.end_row();
+
+                        ui.label(" Friction Coefficient");
+                        ui.add(egui::Slider::new(&mut self.inner_params.friction_coeff, 0.0..=1.0));
+                        ui.end_row();
                     });
                 
                     if ui.add(egui::Button::new("Restart Simulation")).clicked() {
                         self.state = OutputState::ReloadRequired;
+                    }
+
+                    if ui.add(egui::Button::new("Randomize Attraction Matrix")).clicked() {
+                        self.inner_params.randomize_matrix();
                     }
             });
 
