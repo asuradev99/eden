@@ -6,6 +6,10 @@ struct Camera {
     aspect_ratio : f32,
 }
 
+// struct Output {
+//     @builtin(position) clip_position: vec4<f32>,
+//     vel 
+// }
 @group(0) @binding(0) var<uniform> camera : Camera;
 
 @vertex
@@ -31,5 +35,5 @@ fn main_vs(
 
 @fragment
 fn main_fs(@builtin(position) clip_position: vec4<f32>) -> @location(0) vec4<f32> {
-    return vec4<f32>(clip_position.z, 1.0 - clip_position.z, clip_position.z, 0.1);
+    return vec4<f32>(1.0 - clip_position.z, clip_position.z, clip_position.z, 0.1);
 }

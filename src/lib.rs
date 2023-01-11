@@ -63,9 +63,9 @@ impl Params {
             num_particles: 20000,
             shader_buffer: DEFAULT_COMPUTE_SHADER.to_string(),
             world_size: 100.0,
-            well_depth: 5000.0, 
-            attract_coeff: 0.3,
-            repulse_coeff: 0.4, 
+            well_depth: 50000.0, 
+            attract_coeff: 1.0,
+            repulse_coeff: 1.0, 
             friction_coeff: 0.9,
         }
     }
