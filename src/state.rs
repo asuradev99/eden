@@ -1,7 +1,8 @@
 //use nanorand::{Rng, WyRand};
 use std::{borrow::Cow, mem};
 
-use wgpu::util::DeviceExt;
+use eden::SAMPLE_COUNT;
+use wgpu::{util::DeviceExt, TextureView};
 
 #[derive(Debug)]
 pub struct State {
@@ -204,12 +205,16 @@ impl State {
                 targets: &[Some(config.format.into())],
             }),
             primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::LineList, // change to PointLIst
+                topology: wgpu::PrimitiveTopology::TriangleList, // change to PointLIst
                 cull_mode: None,
                 ..Default::default()
             },
             depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
+            multisample: wgpu::MultisampleState {
+                count: SAMPLE_COUNT,
+                mask: !0, 
+                alpha_to_coverage_enabled: false,
+            }, 
             multiview: None,
         });
 
@@ -228,7 +233,7 @@ impl State {
       //  let circle_buffer_data = [-0.01f32, -0.02, 0.01, -0.02, 0.00, 0.02];
         let circle_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
-            contents: bytemuck::bytes_of(&eden::generate_circle( 0.1)),
+            contents: bytemuck::bytes_of(&eden::generate_circle( 0.2)),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
 
@@ -347,11 +352,12 @@ impl State {
         queue.write_buffer(&(self.camera_uniform_buffer), 0, bytemuck::cast_slice(&[self.camera.to_slice()]));
     
     }
-    pub fn render(&mut self, view: &wgpu::TextureView, device: &wgpu::Device, queue: &wgpu::Queue) {
+    pub fn render(&mut self, view: &wgpu::TextureView, resolve_view: Option<&TextureView>, device: &wgpu::Device, queue: &wgpu::Queue) {
         // create render pass descriptor and its color attachments
+        
         let color_attachments = [Some(wgpu::RenderPassColorAttachment {
             view,
-            resolve_target: None,
+            resolve_target: resolve_view,
             ops: wgpu::Operations {
                 // Not clearing here in order to test wgpu's zero texture initialization on a surface texture.
                 // Users should avoid loading uninitialized memory since this can cause additional overhead.
@@ -390,7 +396,7 @@ impl State {
             rpass.set_vertex_buffer(0, self.particle_buffers[(self.frame_num + 1) % 2].slice(..));
             rpass.set_vertex_buffer(1, self.circle_buffer.slice(..));
             // the three instance-local vertices ????
-            rpass.draw(0..((eden::CIRCLE_RES) as u32), 0..self.params.num_particles);
+            rpass.draw(0..((eden::CIRCLE_RES * 3) as u32), 0..self.params.num_particles);
         }
 
         // update frame count

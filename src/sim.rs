@@ -1,8 +1,12 @@
+
+
 use std::future::Future;
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
 
-use smaa::SmaaTarget;
+use eden::SAMPLE_COUNT;
+use eden::TEXTURE_FORMAT;
+
 use winit::{
     event::{self, WindowEvent, MouseButton, ElementState},
     event_loop::{ControlFlow, EventLoop}, dpi::PhysicalPosition,
@@ -67,20 +71,25 @@ async fn setup(title: &str) -> Setup {
 
 
     log::info!("Initializing the surface...");
+    
+    let backends = wgpu::util::backend_bits_from_env().unwrap_or_else(wgpu::Backends::all);
+    let dx12_shader_compiler = wgpu::util::dx12_shader_compiler_from_env().unwrap_or_default();
 
-    let backend = wgpu::util::backend_bits_from_env().unwrap_or_else(wgpu::Backends::all);
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        backends,
+        dx12_shader_compiler,
+    });
 
-    let instance = wgpu::Instance::new(backend);
     let (size, surface) = unsafe {
         let size = window.inner_size();
 
-        let surface = instance.create_surface(&window);
+        let surface = instance.create_surface(&window).unwrap();
 
         (size, surface)
     };
 
     let adapter =
-        wgpu::util::initialize_adapter_from_env_or_default(&instance, backend, Some(&surface))
+        wgpu::util::initialize_adapter_from_env_or_default(&instance, backends, Some(&surface))
             .await
             .expect("No suitable GPU adapters found on the system!");
 
@@ -158,11 +167,12 @@ fn start(
     let spawner = Spawner::new();
     let mut config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface.get_supported_formats(&adapter)[0],
+            format: TEXTURE_FORMAT,
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::Fifo,
-            alpha_mode: surface.get_supported_alpha_modes(&adapter)[0],
+            alpha_mode: wgpu::CompositeAlphaMode::Auto, //Auto() 
+            view_formats: vec![TEXTURE_FORMAT],
     };
     surface.configure(&device, &config);
     
@@ -317,12 +327,38 @@ fn start(
                             .expect("Failed to acquire next surface texture!")
                     }
                 };
+                
+                let depthframe = device.create_texture(&wgpu::TextureDescriptor {
+                    label: None, 
+                    size: wgpu::Extent3d {
+                        width: config.width, 
+                        height: config.height,
+                        depth_or_array_layers: 1
+                    },
+                    mip_level_count: 1, 
+                    sample_count: SAMPLE_COUNT, 
+                    dimension: wgpu::TextureDimension::D2, 
+                    format: TEXTURE_FORMAT, 
+                    usage: wgpu::TextureUsages::RENDER_ATTACHMENT, 
+                    view_formats: &[], 
+                });
+
+
+                
                 let view = frame
                     .texture
                     .create_view(&wgpu::TextureViewDescriptor::default());
                       //render ui
+                
+                let msaaview = depthframe.create_view(&wgpu::TextureViewDescriptor::default());
+               if(SAMPLE_COUNT == 1) {
+                    
+                example.render(&view, None, &device, &queue);
+               } else {
+                
+                example.render(&msaaview, Some(&view), &device, &queue);
+               }
 
-                example.render(&view, &device, &queue);
                 test_ui.render(&window, &device, &view, &queue);
 
                 frame.present();
