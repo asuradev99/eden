@@ -21,7 +21,7 @@ pub struct Gui {
     pub state: OutputState,
     inner_params: Params,
 }
-
+    
 impl Gui {
     pub fn new(window: &Window, device: &Device, config: &SurfaceConfiguration) -> Self {
         let egui_rpass = RenderPass::new(&device, config.format, 1);

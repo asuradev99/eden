@@ -1,3 +1,4 @@
+use eframe::epaint::CircleShape;
 use rand::prelude::*;
 
 
@@ -9,7 +10,7 @@ pub struct Camera {
     pub aspect_ratio: f32,
 }
 
-pub const CIRCLE_RES: u32 = 128;
+pub const CIRCLE_RES: u32 = 256;
 pub const DEFAULT_COMPUTE_SHADER: &str = include_str!("shaders/lennardjones.wgsl");
 
 impl Camera {
@@ -136,13 +137,28 @@ impl Particle {
 
 }
 
-pub fn generate_circle(radius: f32) -> [f32; (CIRCLE_RES * 2)  as usize ] {
+pub fn generate_circle(radius: f32) -> [f32; (CIRCLE_RES * 4)  as usize ] {
     use std::f64::consts::PI;
     use std::convert::TryInto;
     let mut coords = Vec::<f32>::new();
-    for i in 0..CIRCLE_RES {
+
+    for i in 0..(CIRCLE_RES) {
         coords.push(radius * ((2.0 * PI * i as f64 / CIRCLE_RES as f64) as f32).cos());
         coords.push(radius * ((2.0 * PI * i as f64 / CIRCLE_RES as f64) as f32).sin());
+       
+       
+        coords.push(-1.0 * radius * ((2.0 * PI * i as f64 / CIRCLE_RES as f64) as f32).cos());
+        coords.push(-1.0 * radius *  ((2.0 * PI * i as f64 / CIRCLE_RES as f64) as f32).sin());
+        //  coords.push(radius * ((2.0 * PI * (i+1) as f64 / CIRCLE_RES as f64) as f32).cos());
+        //  coords.push(radius * ((2.0 * PI * (i+1) as f64 / CIRCLE_RES as f64) as f32).sin());
+
     }
+
+    // for i in 0..CIRCLE_RES{
+    //     coords.push(0.01);
+    //     coords.push(0.0)
+    // }
+
+    println!("Coords: {:?}", coords);
     coords.try_into().unwrap_or_else(|v: Vec<f32>| panic!("Expected a Vec of length {} but it was {}", CIRCLE_RES, v.len()))
 }

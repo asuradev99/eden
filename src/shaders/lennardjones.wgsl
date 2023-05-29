@@ -98,14 +98,15 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
      }
   }
 
-  vVel = vVel + aAccum * params.dt; 
-  vVel = params.friction_coeff * vVel;
+  let nvVel = (vVel + (aAccum * params.dt)) * params.friction_coeff; 
   // if(collided != 1u) {
   //     vVel = 0.98 * vVel; 
   // }
 
   vPos = vPos + cAccum;
-  vPos = vPos + vVel * params.dt;
+  vPos = vPos + (vVel + nvVel) / 2.0 * params.dt;
+
+  vVel = nvVel;
 //     vPos.x = vPos.x + 0.001;
 
 //   if (cMassCount > 0) {

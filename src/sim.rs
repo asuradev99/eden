@@ -2,6 +2,7 @@ use std::future::Future;
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
 
+use smaa::SmaaTarget;
 use winit::{
     event::{self, WindowEvent, MouseButton, ElementState},
     event_loop::{ControlFlow, EventLoop}, dpi::PhysicalPosition,
@@ -181,7 +182,11 @@ fn start(
 
     let mut mouseState: bool = false;
     let mut lastMousePosition: PhysicalPosition<f64> = PhysicalPosition { x: -1.0, y: -1.0 };
+    
+    //antialiasing
+    //let mut smaa_target = SmaaTarget::new(&device, &queue, size.width.max(1), size.height.max(1), config.format, smaa::SmaaMode::Smaa1X);
 
+    
     event_loop.run(move |event, _, control_flow| {
 
         test_ui.platform.handle_event(&event);
@@ -248,10 +253,10 @@ fn start(
                     match button {
                         MouseButton::Right => {
                             match state {
-                                ElementState::Pressed => {mouseState = true;                     println!("{}", mouseState);}
+                                ElementState::Pressed => {mouseState = true;      
+                                }
                                 ElementState::Released => {mouseState = false; 
                                     lastMousePosition = PhysicalPosition::<f64>{x: -1.0, y: 0.0};      
-                                                 println!("{}", mouseState);
                                                 }
                             }
                         },
@@ -276,7 +281,6 @@ fn start(
                             queue.write_buffer(&(example.camera_uniform_buffer), 0, bytemuck::cast_slice(&[example.camera.to_slice()]));
 
                             lastMousePosition = position;
-                            println!("{:?}", deltaPosition);
 
                         } else {
                             lastMousePosition = position;

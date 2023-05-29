@@ -45,7 +45,6 @@ impl State {
         _queue: &wgpu::Queue,
     ) -> Self {
 
-        println!("{}", mem::size_of::<eden::Particle>());
         //create parameters
         let params = params;
         let params_slice = params.to_slice();
@@ -80,7 +79,6 @@ impl State {
         //set up camera buffer
        // let camera = Camera::new(1.0 / (params.world_size * 1.5));
        let aspect_ratio:f32 = config.width as f32 / config.height as f32;
-       println!("{} / {} = {}", config.width, config.height, aspect_ratio);
        let camera = eden::Camera::new(1.0 / params.world_size, aspect_ratio);
         let camera_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Buffer"),
@@ -206,8 +204,8 @@ impl State {
                 targets: &[Some(config.format.into())],
             }),
             primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::PointList, // change to PointLIst
-                cull_mode: Some(wgpu::Face::Back),
+                topology: wgpu::PrimitiveTopology::LineList, // change to PointLIst
+                cull_mode: None,
                 ..Default::default()
             },
             depth_stencil: None,
@@ -230,7 +228,7 @@ impl State {
       //  let circle_buffer_data = [-0.01f32, -0.02, 0.01, -0.02, 0.00, 0.02];
         let circle_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
-            contents: bytemuck::bytes_of(&eden::generate_circle( 0.5)),
+            contents: bytemuck::bytes_of(&eden::generate_circle( 0.1)),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
 
@@ -255,7 +253,6 @@ impl State {
             initial_particle_data.extend_from_slice(&eden::Particle::new_random(&params).to_slice())
         }
 
-        println!("{:?}", initial_particle_data);
         // creates two buffers of particle data each of size NUM_PARTICLES
         // the two buffers alternate as dst and src for each frame
 
