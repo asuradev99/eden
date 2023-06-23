@@ -7,7 +7,7 @@ use wgpu::{util::DeviceExt, TextureView};
 #[derive(Debug)]
 pub struct State {
     particle_bind_groups: Vec<wgpu::BindGroup>,
-    pub active_particles: u32, 
+    pub active_particles: u32,
     pub particle_buffers: Vec<wgpu::Buffer>,
     circle_buffer: wgpu::Buffer,
     compute_pipeline: wgpu::ComputePipeline,
@@ -18,6 +18,9 @@ pub struct State {
     pub camera_uniform_buffer: wgpu::Buffer,
     pub params: eden::Params,
     camera_bind_group: wgpu::BindGroup,
+    // post-processing stuff
+   // tex_view: Option<wgpu::TextureView>,
+
 }
 
 impl State {
@@ -100,7 +103,7 @@ impl State {
                             has_dynamic_offset: false,
                             min_binding_size: wgpu::BufferSize::new(
                                 (params_slice.len() * mem::size_of::<f32>()) as _,
-                            ),  
+                            ),
                         },
                         count: None,
                     },
@@ -138,7 +141,7 @@ impl State {
                             has_dynamic_offset: false,
                             min_binding_size: wgpu::BufferSize::new(
                                 (params_attraction_matrix.len() * mem::size_of::<f32>()) as _,
-                            ),  
+                            ),
                         },
                         count: None,
                     },
@@ -212,9 +215,9 @@ impl State {
             depth_stencil: None,
             multisample: wgpu::MultisampleState {
                 count: SAMPLE_COUNT,
-                mask: !0, 
+                mask: !0,
                 alpha_to_coverage_enabled: false,
-            }, 
+            },
             multiview: None,
         });
 
@@ -227,7 +230,7 @@ impl State {
             entry_point: "main",
         });
 
- 
+
         //buffer for particle circle coordinates
 
       //  let circle_buffer_data = [-0.01f32, -0.02, 0.01, -0.02, 0.00, 0.02];
@@ -236,21 +239,6 @@ impl State {
             contents: bytemuck::bytes_of(&eden::generate_circle( 0.2)),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
-
-        // // buffer for all particles data of type [(posx,posy,velx,vely),...]
-        // let mut initial_particle_data = vec![0.0f32; (6 * (params.num_particles)) as usize];
-
-        // //generate random pos and vel
-        // let mut rng = rand::thread_rng();
-        // let mut unif = || (rng.gen::<f32>() * 2f32 - 1f32) * params.world_size;
-
-        // let mut rng = rand::thread_rng();
-        // let mut mass_unif = || (rng.gen::<f32>());
-        // for particle_instance_chunk in initial_particle_data.chunks_mut(6 as usize) {
-        //     particle_instance_chunk[0] = unif(); // posx
-        //     particle_instance_chunk[1] = unif();
-        //     particle_instance_chunk[4] = 1.0 + mass_unif() * 100.0; 
-        // }
 
         let mut initial_particle_data: Vec<f32>  = Vec::new();
 
@@ -319,6 +307,9 @@ impl State {
         let active_particles: u32 = params.num_particles;
         // returns Example struct and No encoder commands
 
+        //post-processing
+        // let tex_view: wgpu::TextureView = device.create_texture()
+
         State {
             particle_bind_groups,
             active_particles,
@@ -350,11 +341,10 @@ impl State {
         self.camera.aspect_ratio = config.width as f32 / config.height as f32;
         //println!("New camera zoom: {:?}", example.camera.zoom);
         queue.write_buffer(&(self.camera_uniform_buffer), 0, bytemuck::cast_slice(&[self.camera.to_slice()]));
-    
+
     }
     pub fn render(&mut self, view: &wgpu::TextureView, resolve_view: Option<&TextureView>, device: &wgpu::Device, queue: &wgpu::Queue) {
         // create render pass descriptor and its color attachments
-        
         let color_attachments = [Some(wgpu::RenderPassColorAttachment {
             view,
             resolve_target: resolve_view,
@@ -375,15 +365,19 @@ impl State {
         let mut command_encoder =
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-        //compute pass
-        {
-            // compute pass
-            let mut cpass =
-                command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
-            cpass.set_pipeline(&self.compute_pipeline);
-            cpass.set_bind_group(0, &self.particle_bind_groups[self.frame_num % 2], &[]);
-            cpass.dispatch_workgroups(self.work_group_count, 1, 1);
+        if self.params.play {
+                // compute pass
+                let mut cpass =
+                    command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
+                cpass.set_pipeline(&self.compute_pipeline);
+                cpass.set_bind_group(0, &self.particle_bind_groups[self.frame_num % 2], &[]);
+                cpass.dispatch_workgroups(self.work_group_count, 1, 1);
+
+            } else {
+                      self.frame_num -= 1;
+
         }
+
 
         //render pass
         {
@@ -404,5 +398,16 @@ impl State {
 
         // done
         queue.submit(Some(command_encoder.finish()));
+    }
+    fn post_processing(&mut self, view: &wgpu::TextureView, device: &wgpu::Device, queue: &wgpu::Queue ) {
+        //light effect
+        //
+        // let render_pass_descriptor = wgpu::RenderPassDescriptor {
+        //    label: None,
+        //    color_attachments: &color_attachments,
+        //  depth_stencil_attachment: None,
+        // };
+
+
     }
 }

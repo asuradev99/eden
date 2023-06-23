@@ -10,7 +10,10 @@ use wgpu::{Device, SurfaceConfiguration, TextureView};
 #[derive(PartialEq)]
 pub enum OutputState {
     ReloadRequired,
+    TogglePlay,
+    Debug,
     None,
+
 }
 use eden::Params;
 
@@ -20,8 +23,9 @@ pub struct Gui {
     tdelta: egui::TexturesDelta,
     pub state: OutputState,
     inner_params: Params,
+    pub frame_rate: f32,
 }
-    
+
 impl Gui {
     pub fn new(window: &Window, device: &Device, config: &SurfaceConfiguration) -> Self {
         let egui_rpass = RenderPass::new(&device, config.format, 1);
@@ -35,12 +39,15 @@ impl Gui {
         let tdelta = egui::TexturesDelta::default();
         let state = OutputState::None;
         let inner_params = Params::new();
+        let mut frame_rate = 0.0;
+
         Self {
             platform,
             egui_rpass,
             tdelta,
             state,
             inner_params,
+            frame_rate,
         }
     }
     pub fn ui(&mut self) {
@@ -62,6 +69,11 @@ impl Gui {
                     .spacing([40.0, 4.0])
                     .striped(true)
                     .show(ui, |ui| {
+
+                        ui.label(format!("Frame Rate: {}", self.frame_rate));
+                        ui.end_row();
+
+
                         ui.label("World Size: ");
                         ui.add(egui::DragValue::new(&mut self.inner_params.world_size));
                         ui.end_row();
@@ -76,9 +88,9 @@ impl Gui {
                             ui.horizontal(|ui| {
                                 for j in 0..max_types  {
                                     ui.add(egui::DragValue::new(&mut self.inner_params.attraction_matrix[i * 4 * max_types + j * 4]));
-                                } 
+                                }
                             });
-                            
+
                             ui.end_row();
                         }
 
@@ -106,7 +118,7 @@ impl Gui {
                         ui.add(egui::Slider::new(&mut self.inner_params.friction_coeff, 0.0..=1.0));
                         ui.end_row();
                     });
-                
+
                     if ui.add(egui::Button::new("Restart Simulation")).clicked() {
                         self.state = OutputState::ReloadRequired;
                     }
@@ -114,18 +126,26 @@ impl Gui {
                     if ui.add(egui::Button::new("Randomize Attraction Matrix")).clicked() {
                         self.inner_params.randomize_matrix();
                     }
+                     if ui.add(egui::Button::new("Play / Pause")).clicked() {
+                        self.state = OutputState::TogglePlay;
+                   }
+                    if ui.add(egui::Button::new("Debug")).clicked() {
+                        //download
+                        //
+                        self.state = OutputState::Debug;
+                    }
             });
 
-        egui::Window::new("Edit Shader")
-            .resizable(true)
-            .min_width(10000.0)
+        //  egui::Window::new("Edit Shader")
+        //  .resizable(true)
+         //   .min_width(10000.0)
             // .fixed_size([500.0, 500.0])
             // .anchor(egui::Align2::RIGHT_TOP, [-5.0, 5.0])
-            .show(&self.platform.context(), |ui| {
-                ScrollArea::vertical().show(ui, |ui| {
-                    ui.add(TextEdit::multiline(&mut self.inner_params.shader_buffer).code_editor());
-                });
-            });
+           // .show(&self.platform.context(), |ui| {
+             //   ScrollArea::vertical().show(ui, |ui| {
+               //     ui.add(TextEdit::multiline(&mut self.inner_params.shader_buffer).code_editor());
+               // });
+            // });
     }
 
     pub fn render(

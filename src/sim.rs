@@ -27,7 +27,7 @@ pub enum ShaderStage {
     Compute,
 }
 
-use super::gui; 
+use super::gui;
 use super::state;
 
 struct Setup {
@@ -49,7 +49,7 @@ async fn setup(title: &str) -> Setup {
 
     //create main event loop for winit()
     let event_loop = EventLoop::new();
-    
+
    // let monitor = event_loop.primary_monitor().unwrap();
    // let video_mode = monitor.video_modes().next();
    // let size = video_mode.clone().map_or(winit::dpi::PhysicalSize::new(800, 600), |vm| vm.size());
@@ -58,10 +58,10 @@ async fn setup(title: &str) -> Setup {
         .with_title("The universe, with a heck of a lot of rounding errors")
         //   .with_fullscreen(video_mode.map(|vm| winit::window::Fullscreen::Exclusive(vm)));
         .with_inner_size(winit::dpi::PhysicalSize {
-            width: 1920, 
+            width: 1920,
             height: 1080
         });
-   
+
     #[cfg(windows_OFF)] // TODO
     {
         use winit::platform::windows::WindowBuilderExtWindows;
@@ -71,7 +71,7 @@ async fn setup(title: &str) -> Setup {
 
 
     log::info!("Initializing the surface...");
-    
+
     let backends = wgpu::util::backend_bits_from_env().unwrap_or_else(wgpu::Backends::all);
     let dx12_shader_compiler = wgpu::util::dx12_shader_compiler_from_env().unwrap_or_default();
 
@@ -93,10 +93,10 @@ async fn setup(title: &str) -> Setup {
             .await
             .expect("No suitable GPU adapters found on the system!");
 
-    
+
     let adapter_info = adapter.get_info();
     println!("Using {} ({:?})", adapter_info.name, adapter_info.backend);
-    
+
 
     let optional_features = wgpu::Features::empty();
     let required_features = wgpu::Features::empty();
@@ -138,7 +138,7 @@ async fn setup(title: &str) -> Setup {
         .await
         .expect("Unable to find a suitable GPU adapter!");
 
-    
+
     Setup {
         window,
         event_loop,
@@ -148,7 +148,7 @@ async fn setup(title: &str) -> Setup {
         adapter,
         device,
         queue,
-        
+
     }
 }
 
@@ -171,11 +171,11 @@ fn start(
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::Fifo,
-            alpha_mode: wgpu::CompositeAlphaMode::Auto, //Auto() 
+            alpha_mode: wgpu::CompositeAlphaMode::Auto, //Auto()
             view_formats: vec![TEXTURE_FORMAT],
     };
     surface.configure(&device, &config);
-    
+
 
 
     let mut test_ui = gui::Gui::new(&window, &device, &config);
@@ -187,16 +187,17 @@ fn start(
 
     let mut last_frame_inst = Instant::now();
     let (mut frame_count, mut accum_time) = (0, 0.0);
+    let mut frame_rate: f32 = 0.0;
 
     log::info!("Entering render loop...");
 
     let mut mouseState: bool = false;
     let mut lastMousePosition: PhysicalPosition<f64> = PhysicalPosition { x: -1.0, y: -1.0 };
-    
+
     //antialiasing
     //let mut smaa_target = SmaaTarget::new(&device, &queue, size.width.max(1), size.height.max(1), config.format, smaa::SmaaMode::Smaa1X);
 
-    
+
     event_loop.run(move |event, _, control_flow| {
 
         test_ui.platform.handle_event(&event);
@@ -263,10 +264,10 @@ fn start(
                     match button {
                         MouseButton::Right => {
                             match state {
-                                ElementState::Pressed => {mouseState = true;      
+                                ElementState::Pressed => {mouseState = true;
                                 }
-                                ElementState::Released => {mouseState = false; 
-                                    lastMousePosition = PhysicalPosition::<f64>{x: -1.0, y: 0.0};      
+                                ElementState::Released => {mouseState = false;
+                                    lastMousePosition = PhysicalPosition::<f64>{x: -1.0, y: 0.0};
                                                 }
                             }
                         },
@@ -281,7 +282,7 @@ fn start(
                     if(mouseState) {
                         if(lastMousePosition.x != -1.0) {
                             let deltaPosition = PhysicalPosition::<f64>{
-                                x: (position.x - lastMousePosition.x) / (config.width as f64), 
+                                x: (position.x - lastMousePosition.x) / (config.width as f64),
                                 y: (position.y - lastMousePosition.y) / (config.height as f64),
                             };
 
@@ -296,8 +297,8 @@ fn start(
                             lastMousePosition = position;
                         }
                     }
-                    
-                }  
+
+                }
                 _ => {
                     example.update(event);
                 }
@@ -309,6 +310,8 @@ fn start(
                     last_frame_inst = Instant::now();
                     frame_count += 1;
                     if frame_count == 100 {
+                        test_ui.frame_rate = accum_time * 1000.0 / frame_count as f32;
+
                         // println!(
                         //     "Avg frame time {}ms",
                         //     accum_time * 1000.0 / frame_count as f32
@@ -327,47 +330,54 @@ fn start(
                             .expect("Failed to acquire next surface texture!")
                     }
                 };
-                
+
                 let depthframe = device.create_texture(&wgpu::TextureDescriptor {
-                    label: None, 
+                    label: None,
                     size: wgpu::Extent3d {
-                        width: config.width, 
+                        width: config.width,
                         height: config.height,
                         depth_or_array_layers: 1
                     },
-                    mip_level_count: 1, 
-                    sample_count: SAMPLE_COUNT, 
-                    dimension: wgpu::TextureDimension::D2, 
-                    format: TEXTURE_FORMAT, 
-                    usage: wgpu::TextureUsages::RENDER_ATTACHMENT, 
-                    view_formats: &[], 
+                    mip_level_count: 1,
+                    sample_count: SAMPLE_COUNT,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: TEXTURE_FORMAT,
+                    usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                    view_formats: &[],
                 });
 
 
-                
+
                 let view = frame
                     .texture
                     .create_view(&wgpu::TextureViewDescriptor::default());
                       //render ui
-                
+
                 let msaaview = depthframe.create_view(&wgpu::TextureViewDescriptor::default());
                if(SAMPLE_COUNT == 1) {
-                    
+
                 example.render(&view, None, &device, &queue);
                } else {
-                
+
                 example.render(&msaaview, Some(&view), &device, &queue);
                }
 
                 test_ui.render(&window, &device, &view, &queue);
 
                 frame.present();
-                
-                test_ui.cleanup();
 
-                if(test_ui.state == gui::OutputState::ReloadRequired) {  
-                    let params = test_ui.gen_params();
-                    example = state::State::init(params, &config, &adapter, &device, &queue);
+                test_ui.cleanup();
+                match test_ui.state {
+                    gui::OutputState::ReloadRequired => {
+                        let params = test_ui.gen_params();
+                        example = state::State::init(params, &config, &adapter, &device, &queue);
+                    },
+                    gui::OutputState::TogglePlay => {
+                        example.params.play = !(example.params.play);
+                    },
+                    gui::OutputState::None => (),
+               }
+                if(test_ui.state == gui::OutputState::ReloadRequired) {
                 }
                 #[cfg(target_arch = "wasm32")]
                 {
@@ -380,13 +390,13 @@ fn start(
                             .bitmap_renderer
                             .transfer_from_image_bitmap(&image_bitmap);
 
-            
+
                     }
                 }
             }
             _ => {}
 
-                    
+
         }
     }
     );
