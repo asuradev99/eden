@@ -8,6 +8,7 @@ struct Particle {
 };
 
 struct SimParams {
+  world_size: f32,
   dt : f32,
   well_depth : f32,
   attract_coeff : f32,
@@ -100,6 +101,18 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
   vPos = vPos + cAccum;
   vPos = vPos + (vVel + nvVel) / 2.0 * params.dt;
 
+   if (vPos.x < -1.0 * params.world_size ) {
+     vPos.x =  -1.0 * params.world_size;
+   }
+   if (vPos.x > params.world_size) {
+     vPos.x = params.world_size;
+   }
+   if (vPos.y < -1.0 * params.world_size) {
+     vPos.y = -1.0 *  params.world_size;
+   }
+   if (vPos.y > params.world_size) {
+     vPos.y = params.world_size;
+   }
   vVel = nvVel;
   // Write back
   particlesDst[index] = Particle(vPos, vVel, particlesSrc[index].mass, particlesSrc[index].kind);

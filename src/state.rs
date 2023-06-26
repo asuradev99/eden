@@ -1,7 +1,8 @@
 //use nanorand::{Rng, WyRand};
 use std::{borrow::Cow, mem};
 
-use eden::SAMPLE_COUNT;
+use eden::{Particle, SAMPLE_COUNT};
+use eframe::Result;
 use wgpu::{util::DeviceExt, TextureView};
 
 #[derive(Debug)]
@@ -19,8 +20,7 @@ pub struct State {
     pub params: eden::Params,
     camera_bind_group: wgpu::BindGroup,
     // post-processing stuff
-   // tex_view: Option<wgpu::TextureView>,
-
+    // tex_view: Option<wgpu::TextureView>,
 }
 
 impl State {
@@ -48,7 +48,6 @@ impl State {
         device: &wgpu::Device,
         _queue: &wgpu::Queue,
     ) -> Self {
-
         //create parameters
         let params = params;
         let params_slice = params.to_slice();
@@ -74,16 +73,17 @@ impl State {
         });
 
         //set up uniform buffer to store global parameters
-        let attraction_matrix_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Parameter Buffer"),
-            contents: bytemuck::cast_slice(params_attraction_matrix),
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-        });
+        let attraction_matrix_buffer =
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Parameter Buffer"),
+                contents: bytemuck::cast_slice(params_attraction_matrix),
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            });
 
         //set up camera buffer
-       // let camera = Camera::new(1.0 / (params.world_size * 1.5));
-       let aspect_ratio:f32 = config.width as f32 / config.height as f32;
-       let camera = eden::Camera::new(1.0 / params.world_size, aspect_ratio);
+        // let camera = Camera::new(1.0 / (params.world_size * 1.5));
+        let aspect_ratio: f32 = config.width as f32 / config.height as f32;
+        let camera = eden::Camera::new(1.0 / params.world_size, aspect_ratio);
         let camera_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Buffer"),
             contents: bytemuck::cast_slice(&(camera.to_slice())),
@@ -115,7 +115,7 @@ impl State {
                             ty: wgpu::BufferBindingType::Storage { read_only: true },
                             has_dynamic_offset: false,
                             min_binding_size: wgpu::BufferSize::new(
-                                (params.num_particles * 24) as _,
+                                (params.num_particles * (mem::size_of::<Particle>() as u32)) as _,
                             ), //CHANGE SIZE IF ISSUES
                         },
                         count: None,
@@ -128,11 +128,12 @@ impl State {
                             ty: wgpu::BufferBindingType::Storage { read_only: false },
                             has_dynamic_offset: false,
                             min_binding_size: wgpu::BufferSize::new(
-                                (params.num_particles * 24) as _,
+                                (params.num_particles * (mem::size_of::<Particle>() as u32)) as _,
                             ),
                         },
                         count: None,
                     },
+                    //attraction matrix buffer
                     wgpu::BindGroupLayoutEntry {
                         binding: 3,
                         visibility: wgpu::ShaderStages::COMPUTE,
@@ -179,7 +180,6 @@ impl State {
                 bind_group_layouts: &[&camera_bind_group_layout],
                 push_constant_ranges: &[],
             });
-
         //initialize render pipeline
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: None,
@@ -190,10 +190,12 @@ impl State {
                 buffers: &[
                     //vertex buffer layout format (2 pos varibales, 2 vel variables)
                     wgpu::VertexBufferLayout {
-                        array_stride:  24,
+                        array_stride:  mem::size_of::<Particle>() as u64,
                         step_mode: wgpu::VertexStepMode::Instance,
                         attributes: &wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2, 2 => Float32, 3 => Float32],
                     },
+
+                    //coordinates to draw circle
 
                     wgpu::VertexBufferLayout {
                         array_stride: 2 * 4,
@@ -230,17 +232,16 @@ impl State {
             entry_point: "main",
         });
 
-
         //buffer for particle circle coordinates
 
-      //  let circle_buffer_data = [-0.01f32, -0.02, 0.01, -0.02, 0.00, 0.02];
+        //  let circle_buffer_data = [-0.01f32, -0.02, 0.01, -0.02, 0.00, 0.02];
         let circle_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
-            contents: bytemuck::bytes_of(&eden::generate_circle( 0.2)),
+            contents: bytemuck::bytes_of(&eden::generate_circle(0.2)),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
 
-        let mut initial_particle_data: Vec<f32>  = Vec::new();
+        let mut initial_particle_data: Vec<f32> = Vec::new();
 
         for _ in 0..params.num_particles {
             initial_particle_data.extend_from_slice(&eden::Particle::new_random(&params).to_slice())
@@ -258,7 +259,8 @@ impl State {
                     contents: bytemuck::cast_slice(&initial_particle_data),
                     usage: wgpu::BufferUsages::VERTEX
                         | wgpu::BufferUsages::STORAGE
-                        | wgpu::BufferUsages::COPY_DST,
+                        | wgpu::BufferUsages::COPY_DST
+                        | wgpu::BufferUsages::COPY_SRC,
                 }),
             );
         }
@@ -340,10 +342,49 @@ impl State {
     ) {
         self.camera.aspect_ratio = config.width as f32 / config.height as f32;
         //println!("New camera zoom: {:?}", example.camera.zoom);
-        queue.write_buffer(&(self.camera_uniform_buffer), 0, bytemuck::cast_slice(&[self.camera.to_slice()]));
-
+        queue.write_buffer(
+            &(self.camera_uniform_buffer),
+            0,
+            bytemuck::cast_slice(&[self.camera.to_slice()]),
+        );
     }
-    pub fn render(&mut self, view: &wgpu::TextureView, resolve_view: Option<&TextureView>, device: &wgpu::Device, queue: &wgpu::Queue) {
+
+    pub fn debug(&self, device: &wgpu::Device, queue: &wgpu::Queue) {
+        use eden::Particle;
+        use std::mem;
+        use std::result;
+
+        let with_buffer =
+            |result: result::Result<wgpu::util::DownloadBuffer, wgpu::BufferAsyncError>| {
+                let buffer: &[u8] = &*result.unwrap();
+                let mut particle_buffer: Vec<Particle> = Vec::new();
+
+                for particle_bytes in buffer.chunks_exact(std::mem::size_of::<Particle>()) {
+                    let bytes_fixed: *const [u8; std::mem::size_of::<Particle>()] =
+                        particle_bytes.as_ptr() as *const [u8; std::mem::size_of::<Particle>()];
+                    unsafe {
+                        let new_particle: Particle = mem::transmute(*bytes_fixed);
+                        particle_buffer.push(new_particle);
+                    }
+                }
+
+                println!("{:?}", particle_buffer);
+            };
+
+        wgpu::util::DownloadBuffer::read_buffer(
+            device,
+            queue,
+            &self.particle_buffers[0].slice(..),
+            with_buffer,
+        );
+    }
+    pub fn render(
+        &mut self,
+        view: &wgpu::TextureView,
+        resolve_view: Option<&TextureView>,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) {
         // create render pass descriptor and its color attachments
         let color_attachments = [Some(wgpu::RenderPassColorAttachment {
             view,
@@ -366,18 +407,15 @@ impl State {
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
         if self.params.play {
-                // compute pass
-                let mut cpass =
-                    command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
-                cpass.set_pipeline(&self.compute_pipeline);
-                cpass.set_bind_group(0, &self.particle_bind_groups[self.frame_num % 2], &[]);
-                cpass.dispatch_workgroups(self.work_group_count, 1, 1);
-
-            } else {
-                      self.frame_num -= 1;
-
+            // compute pass
+            let mut cpass =
+                command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
+            cpass.set_pipeline(&self.compute_pipeline);
+            cpass.set_bind_group(0, &self.particle_bind_groups[self.frame_num % 2], &[]);
+            cpass.dispatch_workgroups(self.work_group_count, 1, 1);
+        } else {
+            self.frame_num -= 1;
         }
-
 
         //render pass
         {
@@ -390,7 +428,10 @@ impl State {
             rpass.set_vertex_buffer(0, self.particle_buffers[(self.frame_num + 1) % 2].slice(..));
             rpass.set_vertex_buffer(1, self.circle_buffer.slice(..));
             // the three instance-local vertices ????
-            rpass.draw(0..((eden::CIRCLE_RES * 3) as u32), 0..self.params.num_particles);
+            rpass.draw(
+                0..((eden::CIRCLE_RES * 3) as u32),
+                0..self.params.num_particles,
+            );
         }
 
         // update frame count
@@ -399,7 +440,12 @@ impl State {
         // done
         queue.submit(Some(command_encoder.finish()));
     }
-    fn post_processing(&mut self, view: &wgpu::TextureView, device: &wgpu::Device, queue: &wgpu::Queue ) {
+    fn post_processing(
+        &mut self,
+        view: &wgpu::TextureView,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) {
         //light effect
         //
         // let render_pass_descriptor = wgpu::RenderPassDescriptor {
@@ -407,7 +453,5 @@ impl State {
         //    color_attachments: &color_attachments,
         //  depth_stencil_attachment: None,
         // };
-
-
     }
 }
