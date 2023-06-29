@@ -8,10 +8,12 @@ use wgpu::{util::DeviceExt, TextureView};
 #[derive(Debug)]
 pub struct State {
     particle_bind_groups: Vec<wgpu::BindGroup>,
+    preprocessing_bind_groups: Vec<wgpu::BindGroup>,
     pub active_particles: u32,
     pub particle_buffers: Vec<wgpu::Buffer>,
     circle_buffer: wgpu::Buffer,
     compute_pipeline: wgpu::ComputePipeline,
+    preprocessing_pipeline: wgpu::ComputePipeline,
     render_pipeline: wgpu::RenderPipeline,
     work_group_count: u32,
     frame_num: usize,
@@ -53,6 +55,14 @@ impl State {
         let params_slice = params.to_slice();
         let params_attraction_matrix = params.attraction_matrix_slice();
 
+        //nitialize preprocessing shader
+        let preprocessing_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Preprocessing Shader"),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!(
+                "shaders/preprocessing.wgsl"
+            ))),
+        });
+
         //initialize compute shader module
         let compute_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
@@ -89,6 +99,52 @@ impl State {
             contents: bytemuck::cast_slice(&(camera.to_slice())),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
+
+        let preprocessing_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    //PARAM buffer
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: wgpu::BufferSize::new(
+                                (params_slice.len() * mem::size_of::<f32>()) as _,
+                            ),
+                        },
+                        count: None,
+                    },
+                    //input / source buffer
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: wgpu::BufferSize::new(
+                                (params.num_particles * (mem::size_of::<Particle>() as u32)) as _,
+                            ), //CHANGE SIZE IF ISSUES
+                        },
+                        count: None,
+                    },
+                    //output / destination buffer
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: false },
+                            has_dynamic_offset: false,
+                            min_binding_size: wgpu::BufferSize::new(
+                                (params.num_particles * (mem::size_of::<Particle>() as u32)) as _,
+                            ),
+                        },
+                        count: None,
+                    },
+                ],
+                label: Some("Preprocessing Bind Group Layout"),
+            });
 
         //set up compute bind group layouts and compute pipeline layours
         let compute_bind_group_layout =
@@ -148,6 +204,13 @@ impl State {
                     },
                 ],
                 label: None,
+            });
+
+        let preprocessing_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Preprocessing"),
+                bind_group_layouts: &[&preprocessing_bind_group_layout],
+                push_constant_ranges: &[],
             });
         //compute pipeline layout =
         let compute_pipeline_layout =
@@ -224,6 +287,13 @@ impl State {
         });
 
         // create compute pipeline
+        let preprocessing_pipeline =
+            device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("Preprocessing Pipeline"),
+                layout: Some(&preprocessing_pipeline_layout),
+                module: &preprocessing_shader,
+                entry_point: "main",
+            });
 
         let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("Compute pipeline"),
@@ -251,8 +321,9 @@ impl State {
         // the two buffers alternate as dst and src for each frame
 
         let mut particle_buffers = Vec::<wgpu::Buffer>::new();
+        let mut preprocessing_bind_groups = Vec::<wgpu::BindGroup>::new();
         let mut particle_bind_groups = Vec::<wgpu::BindGroup>::new();
-        for i in 0..2 {
+        for i in 0..3 {
             particle_buffers.push(
                 device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some(&format!("Particle Buffer {}", i)),
@@ -278,7 +349,27 @@ impl State {
         // create two bind groups, one for each buffer as the src
         // where the alternate buffer is used as the dst
 
-        for i in 0..2 {
+        for i in 0..3 {
+            preprocessing_bind_groups.push(device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &preprocessing_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: sim_param_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: particle_buffers[(i * 2) % 3].as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: particle_buffers[((i * 2) + 1) % 3].as_entire_binding(), // bind to opposite buffer
+                    },
+                ],
+                label: None,
+            }));
+        }
+        for i in 0..3 {
             particle_bind_groups.push(device.create_bind_group(&wgpu::BindGroupDescriptor {
                 layout: &compute_bind_group_layout,
                 entries: &[
@@ -288,11 +379,11 @@ impl State {
                     },
                     wgpu::BindGroupEntry {
                         binding: 1,
-                        resource: particle_buffers[i].as_entire_binding(),
+                        resource: particle_buffers[((i * 2) + 1) % 3].as_entire_binding(),
                     },
                     wgpu::BindGroupEntry {
                         binding: 2,
-                        resource: particle_buffers[(i + 1) % 2].as_entire_binding(), // bind to opposite buffer
+                        resource: particle_buffers[((i * 2) + 2) % 3].as_entire_binding(), // bind to opposite buffer
                     },
                     wgpu::BindGroupEntry {
                         binding: 3,
@@ -314,10 +405,12 @@ impl State {
 
         State {
             particle_bind_groups,
+            preprocessing_bind_groups,
             active_particles,
             particle_buffers,
             circle_buffer,
             compute_pipeline,
+            preprocessing_pipeline,
             render_pipeline,
             work_group_count,
             frame_num: 0,
@@ -402,16 +495,29 @@ impl State {
             depth_stencil_attachment: None,
         };
 
+        let mut preprocessing_command_encoder =
+            device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Preprocessing Command Encoder"),
+            });
+
         // get command encoder
         let mut command_encoder =
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
         if self.params.play {
+            //preprocessing compute pass
+            let mut ppass =
+                preprocessing_command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                    label: Some("Preprocessing Pass"),
+                });
+            ppass.set_pipeline(&self.preprocessing_pipeline);
+            ppass.set_bind_group(0, &self.preprocessing_bind_groups[self.frame_num % 3], &[]);
+            ppass.dispatch_workgroups(self.work_group_count, 1, 1);
             // compute pass
             let mut cpass =
                 command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
             cpass.set_pipeline(&self.compute_pipeline);
-            cpass.set_bind_group(0, &self.particle_bind_groups[self.frame_num % 2], &[]);
+            cpass.set_bind_group(0, &self.particle_bind_groups[self.frame_num % 3], &[]);
             cpass.dispatch_workgroups(self.work_group_count, 1, 1);
         } else {
             self.frame_num -= 1;
@@ -425,7 +531,10 @@ impl State {
             //load camera uniform buffer
             rpass.set_bind_group(0, &self.camera_bind_group, &[]);
             // render dst particles
-            rpass.set_vertex_buffer(0, self.particle_buffers[(self.frame_num + 1) % 2].slice(..));
+            rpass.set_vertex_buffer(
+                0,
+                self.particle_buffers[((self.frame_num * 2) + 2) % 3].slice(..),
+            );
             rpass.set_vertex_buffer(1, self.circle_buffer.slice(..));
             // the three instance-local vertices ????
             rpass.draw(
@@ -438,6 +547,7 @@ impl State {
         self.frame_num += 1;
 
         // done
+        queue.submit(Some(preprocessing_command_encoder.finish()));
         queue.submit(Some(command_encoder.finish()));
     }
     fn post_processing(

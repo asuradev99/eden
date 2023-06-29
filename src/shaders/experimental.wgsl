@@ -4,7 +4,9 @@ struct Particle {
   pos : vec2<f32>,
   vel : vec2<f32>,
   mass: f32,
-  kind: f32
+  kind: f32,
+  fptr: f32,
+  bptr: f32
 };
 
 struct SimParams {
@@ -115,5 +117,5 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
    }
   vVel = nvVel;
   // Write back
-  particlesDst[index] = Particle(vPos, vVel, particlesSrc[index].mass, particlesSrc[index].kind);
+  particlesDst[index] = Particle(vPos, vVel, particlesSrc[index].mass, particlesSrc[index].kind, particlesSrc[index].fptr, particlesSrc[index].bptr);
 }

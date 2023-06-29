@@ -1,7 +1,8 @@
-
 mod gui;
-mod state;
 mod sim;
-fn main () {
+// mod stage;
+mod state;
+
+fn main() {
     sim::run("particles");
 }

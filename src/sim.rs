@@ -24,7 +24,6 @@ pub enum ShaderStage {
     Fragment,
     Compute,
 }
-
 use super::gui;
 use super::state;
 

@@ -115,12 +115,15 @@ pub struct Particle {
     vel: (f32, f32),
     mass: f32,
     kind: f32,
+    fptr: f32,
+    bptr: f32,
 }
 
 impl Particle {
-    pub fn to_slice(&self) -> [f32; 6] {
+    pub fn to_slice(&self) -> [f32; 8] {
         [
-            self.pos.0, self.pos.1, self.vel.0, self.vel.1, self.mass, self.kind,
+            self.pos.0, self.pos.1, self.vel.0, self.vel.1, self.mass, self.kind, self.fptr,
+            self.bptr,
         ]
     }
     pub fn new_random(params: &Params) -> Self {
@@ -134,6 +137,8 @@ impl Particle {
             vel: (0.0, 0.0),
             mass: 1.0,
             kind: (rng.gen_range(0..max_types as u32) as f32) / (max_types as f32),
+            bptr: -1.0,
+            fptr: -1.0,
         }
     }
     pub fn new() -> Self {
@@ -142,6 +147,8 @@ impl Particle {
             vel: (0.0, 0.0),
             mass: 100.0,
             kind: 0.01,
+            fptr: -1.0,
+            bptr: -1.0,
         }
     }
 }
