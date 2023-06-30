@@ -16,6 +16,7 @@ struct SimParams {
   attract_coeff : f32,
   repulse_coeff: f32,
   friction_coeff: f32,
+  grid_size_side: f32,
 };
 
 struct AttractionMatrixEntry {
@@ -28,6 +29,8 @@ struct AttractionMatrixEntry {
 @group(0) @binding(1) var<storage, read> particlesSrc : array<Particle>;
 @group(0) @binding(2) var<storage, read_write> particlesDst : array<Particle>;
 @group(0) @binding(3) var<storage, read> attraction_matrix : array<AttractionMatrixEntry>;
+@group(0) @binding(4) var<storage, read_write> bucket_indeces : array<i32>;
+
 
 // https://github.com/austinEng/Project6-Vulkan-Flocking/blob/master/data/shaders/computeparticles/particle.comp
 @compute
@@ -104,16 +107,16 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
   vPos = vPos + (vVel + nvVel) / 2.0 * params.dt;
 
    if (vPos.x < -1.0 * params.world_size ) {
-     vPos.x =  -1.0 * params.world_size;
+     vPos.x =  -1.0 * params.world_size + 5.0;
    }
    if (vPos.x > params.world_size) {
-     vPos.x = params.world_size;
+     vPos.x = params.world_size - 5.0;
    }
    if (vPos.y < -1.0 * params.world_size) {
-     vPos.y = -1.0 *  params.world_size;
+     vPos.y = -1.0 *  params.world_size + 5.0;
    }
    if (vPos.y > params.world_size) {
-     vPos.y = params.world_size;
+     vPos.y = params.world_size - 5.0;
    }
   vVel = nvVel;
   // Write back

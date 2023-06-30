@@ -14,10 +14,12 @@ struct SimParams {
   attract_coeff : f32,
   repulse_coeff: f32,
   friction_coeff: f32,
+  grid_size_side: f32,
 };
 @group(0) @binding(0) var<uniform> params : SimParams;
 @group(0) @binding(1) var<storage, read> particlesSrc : array<Particle>;
 @group(0) @binding(2) var<storage, read_write> particlesDst : array<Particle>;
+@group(0) @binding(3) var<storage, read_write> bucket_indeces : array<i32>;
 
 @compute
 @workgroup_size(64)
@@ -32,7 +34,6 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
   var vVel : vec2<f32> = particlesSrc[index].vel;
 
-  vPos.x += 0.01;
 
   //write back
 
