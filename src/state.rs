@@ -55,6 +55,10 @@ impl State {
         let params_slice = params.to_slice();
         let params_attraction_matrix = params.attraction_matrix_slice();
 
+        //create bucket index buffer data
+
+        let bucket_indeces_data: Vec<i32> = vec![-1; params.num_grids_side.pow(2) as usize];
+
         //nitialize preprocessing shader
         let preprocessing_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Preprocessing Shader"),
@@ -89,6 +93,12 @@ impl State {
                 contents: bytemuck::cast_slice(params_attraction_matrix),
                 usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             });
+
+        let bucket_indeces_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Bucket Indeces"),
+            contents: bytemuck::cast_slice(&bucket_indeces_data),
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+        });
 
         //set up camera buffer
         // let camera = Camera::new(1.0 / (params.world_size * 1.5));
@@ -138,6 +148,19 @@ impl State {
                             has_dynamic_offset: false,
                             min_binding_size: wgpu::BufferSize::new(
                                 (params.num_particles * (mem::size_of::<Particle>() as u32)) as _,
+                            ),
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: false },
+                            has_dynamic_offset: false,
+                            min_binding_size: wgpu::BufferSize::new(
+                                bucket_indeces_data.len() as u64
+                                    * std::mem::size_of::<i32>() as u64,
                             ),
                         },
                         count: None,
@@ -198,6 +221,18 @@ impl State {
                             has_dynamic_offset: false,
                             min_binding_size: wgpu::BufferSize::new(
                                 (params_attraction_matrix.len() * mem::size_of::<f32>()) as _,
+                            ),
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 4,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: false },
+                            has_dynamic_offset: false,
+                            min_binding_size: wgpu::BufferSize::new(
+                                bucket_indeces_data.len() as u64 * mem::size_of::<i32>() as u64,
                             ),
                         },
                         count: None,
@@ -365,6 +400,10 @@ impl State {
                         binding: 2,
                         resource: particle_buffers[((i * 2) + 1) % 3].as_entire_binding(), // bind to opposite buffer
                     },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: bucket_indeces_buffer.as_entire_binding(),
+                    },
                 ],
                 label: None,
             }));
@@ -388,6 +427,10 @@ impl State {
                     wgpu::BindGroupEntry {
                         binding: 3,
                         resource: attraction_matrix_buffer.as_entire_binding(), // bind to opposite buffer
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 4,
+                        resource: bucket_indeces_buffer.as_entire_binding(),
                     },
                 ],
                 label: None,

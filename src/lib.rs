@@ -43,6 +43,7 @@ pub struct Params {
     pub repulse_coeff: f32,
     pub friction_coeff: f32,
     pub num_types: u32,
+    pub num_grids_side: u32,
     pub play: bool,
 }
 
@@ -64,10 +65,11 @@ impl Params {
             num_particles: 20000,
             shader_buffer: DEFAULT_COMPUTE_SHADER.to_string(),
             world_size: 100.0,
-            well_depth: 50000.0,
+            well_depth: 30000.0,
             attract_coeff: 1.0,
             repulse_coeff: 1.0,
             friction_coeff: 0.9,
+            num_grids_side: 10,
             play: true,
         }
     }
@@ -84,7 +86,7 @@ impl Params {
         self.attraction_matrix = attraction_matrix;
     }
 
-    pub fn to_slice(&self) -> [f32; 6] {
+    pub fn to_slice(&self) -> [f32; 7] {
         [
             self.world_size,
             self.dt,
@@ -92,6 +94,7 @@ impl Params {
             self.attract_coeff,
             self.repulse_coeff,
             self.friction_coeff,
+            (self.world_size / self.num_grids_side as f32),
         ]
     }
 
