@@ -11,6 +11,7 @@ pub struct State {
     preprocessing_bind_groups: Vec<wgpu::BindGroup>,
     pub active_particles: u32,
     pub particle_buffers: Vec<wgpu::Buffer>,
+    pub bucket_indeces_buffer: wgpu::Buffer,
     circle_buffer: wgpu::Buffer,
     compute_pipeline: wgpu::ComputePipeline,
     preprocessing_pipeline: wgpu::ComputePipeline,
@@ -97,13 +98,20 @@ impl State {
         let bucket_indeces_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Bucket Indeces"),
             contents: bytemuck::cast_slice(&bucket_indeces_data),
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            usage: wgpu::BufferUsages::STORAGE
+                | wgpu::BufferUsages::COPY_DST
+                | wgpu::BufferUsages::COPY_SRC,
         });
 
         //set up camera buffer
         // let camera = Camera::new(1.0 / (params.world_size * 1.5));
         let aspect_ratio: f32 = config.width as f32 / config.height as f32;
-        let camera = eden::Camera::new(1.0 / params.world_size, aspect_ratio);
+        let camera = eden::Camera::new(
+            params.world_size / 4.0,
+            params.world_size / 4.0,
+            1.0 / params.world_size,
+            aspect_ratio,
+        );
         let camera_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Buffer"),
             contents: bytemuck::cast_slice(&(camera.to_slice())),
@@ -451,6 +459,7 @@ impl State {
             preprocessing_bind_groups,
             active_particles,
             particle_buffers,
+            bucket_indeces_buffer,
             circle_buffer,
             compute_pipeline,
             preprocessing_pipeline,
@@ -477,7 +486,6 @@ impl State {
         queue: &wgpu::Queue,
     ) {
         self.camera.aspect_ratio = config.width as f32 / config.height as f32;
-        //println!("New camera zoom: {:?}", example.camera.zoom);
         queue.write_buffer(
             &(self.camera_uniform_buffer),
             0,
@@ -504,8 +512,52 @@ impl State {
                     }
                 }
 
-                println!("{:?}", particle_buffer);
+                let mut accumulator: u32 = 0;
+                let mut accumulator_avg: u32 = 0;
+                let mut accumulator_mass: u32 = 0;
+                for particle in &particle_buffer {
+                    if !(particle.fptr == -1.0 || particle.bptr == -1.0) {
+                        accumulator = std::cmp::max(
+                            accumulator,
+                            ((particle.fptr as u32 - particle.bptr as u32) / 2) as u32,
+                        );
+
+                        accumulator_avg +=
+                            ((particle.fptr as u32 - particle.bptr as u32) / 2) as u32;
+
+                        accumulator_mass = std::cmp::max(accumulator_mass, particle.mass as u32);
+                    }
+                }
+
+                accumulator_avg = accumulator_avg / particle_buffer.len() as u32;
+                accumulator_mass = accumulator_mass / particle_buffer.len() as u32;
+
+                println!("MAXIMUM DISTANCE CHECKED: {}", accumulator);
+                println!("AVERAGE DISTANCE CHAECKED: {}", accumulator_avg);
+                println!("MAX PARTICLES / CELL: {}", accumulator_mass);
+
+                println!("{:#?}", particle_buffer[0].mass as u32);
             };
+
+        let with_buffer_index =
+            |result: result::Result<wgpu::util::DownloadBuffer, wgpu::BufferAsyncError>| {
+                let buffer: &[u8] = &*result.unwrap();
+                let mut index_buffer: Vec<i32> = Vec::new();
+
+                for bytes in buffer.chunks_exact(std::mem::size_of::<i32>()) {
+                    let bytes_fixed: *const [u8; std::mem::size_of::<i32>()] =
+                        bytes.as_ptr() as *const [u8; std::mem::size_of::<i32>()];
+
+                    unsafe {
+                        let new_i32: i32 = mem::transmute(*bytes_fixed);
+                        index_buffer.push(new_i32);
+                    }
+                }
+
+                //println!("{:#?}", index_buffer);
+            };
+
+        println!("DEBUG PARTICLES ---------------");
 
         wgpu::util::DownloadBuffer::read_buffer(
             device,
@@ -513,6 +565,15 @@ impl State {
             &self.particle_buffers[0].slice(..),
             with_buffer,
         );
+
+        println!("DEBUG INDEX BUFFER ----------");
+
+        wgpu::util::DownloadBuffer::read_buffer(
+            device,
+            queue,
+            &self.bucket_indeces_buffer.slice(..),
+            with_buffer_index,
+        )
     }
     pub fn render(
         &mut self,

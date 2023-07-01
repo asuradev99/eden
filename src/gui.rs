@@ -5,7 +5,6 @@ use egui_winit_platform::{Platform, PlatformDescriptor};
 
 use winit::window::Window;
 
-
 use wgpu::{Device, SurfaceConfiguration, TextureView};
 #[derive(PartialEq)]
 pub enum OutputState {
@@ -13,7 +12,6 @@ pub enum OutputState {
     TogglePlay,
     Debug,
     None,
-
 }
 use eden::Params;
 
@@ -69,25 +67,38 @@ impl Gui {
                     .spacing([40.0, 4.0])
                     .striped(true)
                     .show(ui, |ui| {
+                        ui.style_mut().spacing.slider_width = (30.0);
 
                         ui.label(format!("Frame Rate: {}", self.frame_rate));
                         ui.end_row();
 
-
                         ui.label("World Size: ");
                         ui.add(egui::DragValue::new(&mut self.inner_params.world_size));
+                        ui.end_row();
+
+                        ui.label("Grid Lengths Per Side: ");
+                        ui.add(egui::DragValue::new(&mut self.inner_params.num_grids_side));
                         ui.end_row();
 
                         ui.label("Number of Types: ");
                         ui.add(egui::DragValue::new(&mut self.inner_params.num_types));
                         ui.end_row();
 
-                        let max_types: usize = ((self.inner_params.attraction_matrix.len() / 4) as f32).sqrt() as usize;
+                        let max_types: usize = ((self.inner_params.attraction_matrix.len() / 4)
+                            as f32)
+                            .sqrt() as usize;
                         for i in 0..max_types {
                             ui.label(format!("Particle Type {} Forces: ", i));
                             ui.horizontal(|ui| {
-                                for j in 0..max_types  {
-                                    ui.add(egui::DragValue::new(&mut self.inner_params.attraction_matrix[i * 4 * max_types + j * 4]));
+                                for j in 0..max_types {
+                                    ui.add(
+                                        egui::Slider::new(
+                                            &mut self.inner_params.attraction_matrix
+                                                [i * 4 * max_types + j * 4],
+                                            -1.0..=1.0,
+                                        )
+                                        .show_value(false),
+                                    );
                                 }
                             });
 
@@ -107,45 +118,57 @@ impl Gui {
                         ui.end_row();
 
                         ui.label("(Lennard-Jones): Attraction Coefficient");
-                        ui.add(egui::Slider::new(&mut self.inner_params.attract_coeff, 0.0..=1.0));
+                        ui.add(egui::Slider::new(
+                            &mut self.inner_params.attract_coeff,
+                            0.0..=1.0,
+                        ));
                         ui.end_row();
 
                         ui.label("(Lennard-Jones): Repulsion Coefficient");
-                        ui.add(egui::Slider::new(&mut self.inner_params.repulse_coeff, 0.0..=1.0));
+                        ui.add(egui::Slider::new(
+                            &mut self.inner_params.repulse_coeff,
+                            0.0..=1.0,
+                        ));
                         ui.end_row();
 
                         ui.label(" Friction Coefficient");
-                        ui.add(egui::Slider::new(&mut self.inner_params.friction_coeff, 0.0..=1.0));
+                        ui.add(egui::Slider::new(
+                            &mut self.inner_params.friction_coeff,
+                            0.0..=1.0,
+                        ));
                         ui.end_row();
                     });
 
-                    if ui.add(egui::Button::new("Restart Simulation")).clicked() {
-                        self.state = OutputState::ReloadRequired;
-                    }
+                if ui.add(egui::Button::new("Restart Simulation")).clicked() {
+                    self.state = OutputState::ReloadRequired;
+                }
 
-                    if ui.add(egui::Button::new("Randomize Attraction Matrix")).clicked() {
-                        self.inner_params.randomize_matrix();
-                    }
-                     if ui.add(egui::Button::new("Play / Pause")).clicked() {
-                        self.state = OutputState::TogglePlay;
-                   }
-                    if ui.add(egui::Button::new("Debug")).clicked() {
-                        //download
-                        //
-                        self.state = OutputState::Debug;
-                    }
+                if ui
+                    .add(egui::Button::new("Randomize Attraction Matrix"))
+                    .clicked()
+                {
+                    self.inner_params.randomize_matrix();
+                }
+                if ui.add(egui::Button::new("Play / Pause")).clicked() {
+                    self.state = OutputState::TogglePlay;
+                }
+                if ui.add(egui::Button::new("Debug")).clicked() {
+                    //download
+                    //
+                    self.state = OutputState::Debug;
+                }
             });
 
         //  egui::Window::new("Edit Shader")
         //  .resizable(true)
-         //   .min_width(10000.0)
-            // .fixed_size([500.0, 500.0])
-            // .anchor(egui::Align2::RIGHT_TOP, [-5.0, 5.0])
-           // .show(&self.platform.context(), |ui| {
-             //   ScrollArea::vertical().show(ui, |ui| {
-               //     ui.add(TextEdit::multiline(&mut self.inner_params.shader_buffer).code_editor());
-               // });
-            // });
+        //   .min_width(10000.0)
+        // .fixed_size([500.0, 500.0])
+        // .anchor(egui::Align2::RIGHT_TOP, [-5.0, 5.0])
+        // .show(&self.platform.context(), |ui| {
+        //   ScrollArea::vertical().show(ui, |ui| {
+        //     ui.add(TextEdit::multiline(&mut self.inner_params.shader_buffer).code_editor());
+        // });
+        // });
     }
 
     pub fn render(

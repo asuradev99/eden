@@ -37,7 +37,6 @@ struct AttractionMatrixEntry {
 @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
   let total = arrayLength(&particlesSrc);
-  let max_types = u32(sqrt(f32(arrayLength(&attraction_matrix))));
   let index = global_invocation_id.x;
   if (index >= total) {
     return;
@@ -45,38 +44,89 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
   var vPos : vec2<f32> = particlesSrc[index].pos;
   var vVel : vec2<f32> = particlesSrc[index].vel;
-  var vMass : f32 = particlesSrc[index].mass;
-  var vKind : u32 =  u32(particlesSrc[index].kind * f32(max_types));
-
+  var vMass: f32 = 0.0;
   var aAccum : vec2<f32> = vec2<f32>(0.0, 0.0);
-  var cAccum : vec2<f32> = vec2<f32>(0.0, 0.0);
-  var collided : u32 = 0u;
 
-  var i : u32 = 0u;
+ // var bucket: u32 = compute_bucket(vPos);
+
+  var nextptr : i32 = i32(index);
   loop {
-    if (i >= total) {
+    if (nextptr == -1) {
       break;
     }
-    if (i == index) {
+    if (nextptr == i32(index)) {
       continue;
     }
+    let accel = calculate_accel(index, u32(nextptr));
+
+     aAccum = aAccum + accel;
+
+     continuing {
+        nextptr = i32(particlesSrc[u32(nextptr)].fptr);
+        vMass += 1.0;
+     }
+  }
+
+ nextptr = i32(index);
+  loop {
+    if (nextptr == -1) {
+      break;
+    }
+    if (nextptr == i32(index)) {
+      continue;
+    }
+    let accel = calculate_accel(index, u32(nextptr));
+
+     aAccum = aAccum + accel;
+
+     continuing {
+        nextptr = i32(particlesSrc[u32(nextptr)].bptr);
+        vMass += 1.0;
+     }
+  }
+
+
+  let nvVel = (vVel + (aAccum * params.dt)) * params.friction_coeff;
+
+
+  vPos = vPos + (vVel + nvVel) / 2.0 * params.dt;
+
+   if (vPos.x < 0.0 ) {
+     vPos.x = 0.0;
+   }
+   if (vPos.x > params.world_size) {
+     vPos.x = params.world_size;
+   }
+   if (vPos.y < 0.0) {
+     vPos.y = 0.0;
+   }
+   if (vPos.y > params.world_size) {
+     vPos.y = params.world_size;
+   }
+  vVel = nvVel;
+  // Write back
+  particlesDst[index] = Particle(vPos, vVel, vMass, particlesSrc[index].kind, particlesSrc[index].fptr, particlesSrc[index].bptr);
+}
+
+fn calculate_accel(index: u32, i: u32 ) -> vec2<f32> {
+
+     let max_types = u32(sqrt(f32(arrayLength(&attraction_matrix))));
+
+     var vKind : u32 =  u32(particlesSrc[index].kind * f32(max_types));
+
+     var vMass : f32 = particlesSrc[index].mass;
 
      let pos = particlesSrc[i].pos;
-     let mass = particlesSrc[i].mass;
+     let mass = 1.0; //particlesSrc[i].mass;
      let vel = particlesSrc[i].vel;
      let kind = u32(particlesSrc[i].kind * f32(max_types));
-     let distance_vector: vec2<f32> = pos - vPos;
+     let distance_vector: vec2<f32> = pos - particlesSrc[index].pos;
 
-//     let vel = particlesSrc[i].vel;
      var distance = pow(distance_vector, vec2<f32>(2.0, 2.0));
      var distance_squared: f32 = distance.x + distance.y;
      var dist = sqrt(distance_squared);
 
-     //if(dist > 1.0 && index != (total - 100u)  ) {
-      //       continue;
-      //   }
-     var col_length = 1.0; //(sqrt(mass) + sqrt(vMass)) / 2.0; //sigma
-    // var well_depth = 500.0; //e
+    var col_length = 1.0; //(sqrt(mass) + sqrt(vMass)) / 2.0; //sigma
      var col_dist = (dist) / col_length;
      var z = (col_dist + 10.22462) / 10.0;
 
@@ -90,35 +140,17 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         mag = -1.0 * params.attract_coeff * params.well_depth * attraction_matrix[mat_index].elem * term_1 * (term_1 * z - 0.5); /// (distance_squared + 0.0000000000001);
     }
      var accel: vec2<f32> = (distance_vector / sqrt(distance_squared + 0.0000000000001)) * mag / vMass;
-    // var accel: vec2<f32> = mat2x2<f32>(0.5, -0.5, 0.5, 0.5) * accelm;
-     aAccum = aAccum + accel;
 
-     continuing {
-       i = i + 1u;
-     }
-  }
+     return accel;
 
-  let nvVel = (vVel + (aAccum * params.dt)) * params.friction_coeff;
-  // if(collided != 1u) {
-  //     vVel = 0.98 * vVel;
-  // }
+}
 
-  vPos = vPos + cAccum;
-  vPos = vPos + (vVel + nvVel) / 2.0 * params.dt;
+fn compute_bucket(position: vec2<f32>) -> u32 {
 
-   if (vPos.x < -1.0 * params.world_size ) {
-     vPos.x =  -1.0 * params.world_size + 5.0;
-   }
-   if (vPos.x > params.world_size) {
-     vPos.x = params.world_size - 5.0;
-   }
-   if (vPos.y < -1.0 * params.world_size) {
-     vPos.y = -1.0 *  params.world_size + 5.0;
-   }
-   if (vPos.y > params.world_size) {
-     vPos.y = params.world_size - 5.0;
-   }
-  vVel = nvVel;
-  // Write back
-  particlesDst[index] = Particle(vPos, vVel, particlesSrc[index].mass, particlesSrc[index].kind, particlesSrc[index].fptr, particlesSrc[index].bptr);
+     let num_grids_side: u32 = u32(params.world_size / params.grid_size_side);
+
+    let x_bucket = u32(floor(position.x / params.grid_size_side));
+    let y_bucket = u32(floor(position.y / params.grid_size_side));
+
+    return y_bucket * num_grids_side + x_bucket;
 }

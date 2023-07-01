@@ -34,13 +34,48 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
   var vVel : vec2<f32> = particlesSrc[index].vel;
 
+  var bucket = compute_bucket(vPos);
+  var newIndex: f32 = -1.0;
+
+  var i : u32 = index;
+  loop {
+    if (i >= total ) {
+      break;
+    }
+    if (i == index) {
+      continue;
+    }
+
+    if(compute_bucket(particlesSrc[i].pos) == bucket) {
+        newIndex = f32(i);
+        particlesDst[i].bptr = f32(index);
+        break;
+    }
+    continuing {
+       i = i + 1u;
+     }
+  }
 
   //write back
+  particlesDst[index].pos = vPos;
+  particlesDst[index].vel = vVel;
+  particlesDst[index].mass = particlesSrc[index].mass;
+  particlesDst[index].kind = particlesSrc[index].kind;
+  particlesDst[index].fptr = newIndex;
 
-  particlesDst[index] = Particle(vPos, vVel, particlesSrc[index].mass, particlesSrc[index].kind, particlesSrc[index].fptr, particlesSrc[index].bptr);
+  //check if end
+  if(particlesSrc[index].fptr == -1.0) {
+   bucket_indeces[bucket] = i32(index);
+  }
 }
 
 
-fn compute_bucket(position: vec2<f32>) {
+ fn compute_bucket(position: vec2<f32>) -> u32 {
 
-}
+     let num_grids_side: u32 = u32(params.world_size / params.grid_size_side);
+
+    let x_bucket = u32(floor(position.x / params.grid_size_side));
+    let y_bucket = u32(floor(position.y / params.grid_size_side));
+
+    return y_bucket * num_grids_side + x_bucket;
+ }

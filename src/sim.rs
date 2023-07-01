@@ -233,7 +233,6 @@ fn start(
                         },
                     ..
                 } => {
-                    //println!("{:#?}", instance.generate_report());
                     let params = test_ui.gen_params();
                     example = state::State::init(params, &config, &adapter, &device, &queue);
                 }

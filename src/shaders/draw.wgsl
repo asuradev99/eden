@@ -1,14 +1,14 @@
 
 struct Camera {
-    x : f32, 
+    x : f32,
     y : f32,
-    zoom : f32, 
+    zoom : f32,
     aspect_ratio : f32,
 }
 
 // struct Output {
 //     @builtin(position) clip_position: vec4<f32>,
-//     vel 
+//     vel
 // }
 @group(0) @binding(0) var<uniform> camera : Camera;
 
@@ -22,8 +22,9 @@ fn main_vs(
     //@location(2) mass: f32,
 ) -> @builtin(position) vec4<f32> {
     let camera_pos_vec = vec2<f32>(camera.x, camera.y);
-    var new_pos: vec2<f32> = vec2<f32>(particle_pos.x + (circle_coord.x * sqrt(mass)), particle_pos.y + (circle_coord.y * sqrt(mass)));
+    // var new_pos: vec2<f32> = vec2<f32>(particle_pos.x + (circle_coord.x * sqrt(mass)), particle_pos.y + (circle_coord.y * sqrt(mass)));
 
+     var new_pos: vec2<f32> = vec2<f32>(particle_pos.x + circle_coord.x, particle_pos.y + circle_coord.y);
     if(camera.aspect_ratio > 1.0) {
         new_pos = vec2<f32>(new_pos.x / camera.aspect_ratio, new_pos.y);
     } else {
@@ -31,6 +32,7 @@ fn main_vs(
 
     }
     return vec4<f32>((new_pos - camera_pos_vec) * camera.zoom, kind, 1.0);
+
 }
 
 @fragment

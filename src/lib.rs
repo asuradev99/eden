@@ -11,15 +11,15 @@ pub struct Camera {
 }
 
 pub const SAMPLE_COUNT: u32 = 4;
-pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8UnormSrgb;
+pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb; // wgpu::TextureFormat::Rgba8UnormSrgb;
 pub const CIRCLE_RES: u32 = 32;
 pub const DEFAULT_COMPUTE_SHADER: &str = include_str!("shaders/experimental.wgsl");
 
 impl Camera {
-    pub fn new(zoom: f32, aspect_ratio: f32) -> Self {
+    pub fn new(x: f32, y: f32, zoom: f32, aspect_ratio: f32) -> Self {
         Camera {
-            x: 0.0,
-            y: 0.0,
+            x: x,
+            y: y,
             zoom: zoom,
             aspect_ratio: aspect_ratio,
         }
@@ -52,7 +52,7 @@ impl Params {
         let mut attraction_matrix: Vec<f32> = Vec::new();
         let mut rng = rand::thread_rng();
         let mut unif = || (rng.gen::<f32>() * 2f32 - 1f32);
-        let num_types: u32 = 2;
+        let num_types: u32 = 1;
         for i in 0..num_types.pow(2) {
             attraction_matrix.extend_from_slice(&[unif(), 0.0, 0.0, 0.0]);
         }
@@ -61,15 +61,15 @@ impl Params {
         Params {
             num_types: num_types,
             attraction_matrix: attraction_matrix,
-            dt: 0.001,
-            num_particles: 20000,
+            dt: 0.001, //0.001,
+            num_particles: 100000,
             shader_buffer: DEFAULT_COMPUTE_SHADER.to_string(),
-            world_size: 100.0,
+            world_size: 200.0,
             well_depth: 30000.0,
             attract_coeff: 1.0,
             repulse_coeff: 1.0,
             friction_coeff: 0.9,
-            num_grids_side: 10,
+            num_grids_side: 20,
             play: true,
         }
     }
@@ -116,10 +116,10 @@ impl Params {
 pub struct Particle {
     pos: (f32, f32),
     vel: (f32, f32),
-    mass: f32,
+    pub mass: f32,
     kind: f32,
-    fptr: f32,
-    bptr: f32,
+    pub fptr: f32,
+    pub bptr: f32,
 }
 
 impl Particle {
@@ -131,7 +131,7 @@ impl Particle {
     }
     pub fn new_random(params: &Params) -> Self {
         let mut rng = rand::thread_rng();
-        let mut unif = || (rng.gen::<f32>() * 2f32 - 1f32) * params.world_size;
+        let mut unif = || (rng.gen::<f32>()) * params.world_size;
         let max_types: f32 = f32::sqrt(params.attraction_matrix.len() as f32 / 4.0);
         let mut rng = rand::thread_rng();
 
@@ -177,7 +177,6 @@ pub fn generate_circle(radius: f32) -> [f32; (CIRCLE_RES * 8) as usize] {
         coords.push(0.0)
     }
 
-    println!("Coords: {:?}", coords);
     coords.try_into().unwrap_or_else(|v: Vec<f32>| {
         panic!(
             "Expected a Vec of length {} but it was {}",
