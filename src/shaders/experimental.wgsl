@@ -1,5 +1,6 @@
 
 
+
 struct Particle {
   pos : vec2<f32>,
   vel : vec2<f32>,
@@ -36,6 +37,18 @@ struct AttractionMatrixEntry {
 @compute
 @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
+let NEIGHBORHOOD = array(
+    vec2<i32>(-1, -1),
+    vec2<i32>(0, -1),
+    vec2<i32>(1, -1),
+    vec2<i32>(-1, 0),
+    vec2<i32>(1, 0),
+    vec2<i32>(-1, 1),
+    vec2<i32>(0, 1),
+    vec2<i32>(1, 1)
+ );
+
+
   let total = arrayLength(&particlesSrc);
   let index = global_invocation_id.x;
   if (index >= total) {
@@ -47,28 +60,14 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
   var vMass: f32 = 0.0;
   var aAccum : vec2<f32> = vec2<f32>(0.0, 0.0);
 
- // var bucket: u32 = compute_bucket(vPos);
 
-  var nextptr : i32 = i32(index);
-  loop {
-    if (nextptr == -1) {
-      break;
-    }
-    if (nextptr == i32(index)) {
-      continue;
-    }
-    let accel = calculate_accel(index, u32(nextptr));
+  var vBucket: u32 = compute_bucket(vPos);
 
-     aAccum = aAccum + accel;
 
-     continuing {
-        nextptr = i32(particlesSrc[u32(nextptr)].fptr);
-        vMass += 1.0;
-     }
-  }
+  let num_grids_side: u32 = u32(params.world_size / params.grid_size_side);
+  var nextptr : i32 = bucket_indeces[vBucket];
 
- nextptr = i32(index);
-  loop {
+ loop {
     if (nextptr == -1) {
       break;
     }
@@ -83,6 +82,47 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         nextptr = i32(particlesSrc[u32(nextptr)].bptr);
         vMass += 1.0;
      }
+  }
+
+
+  for(var i: i32 = -1; i < 2; i++) {
+      for(var j: i32 = -1; j < 2; j++) {
+
+
+    let x_bucket = i32(floor(vPos.x / params.grid_size_side)) + i;
+    let y_bucket = i32(floor(vPos.y / params.grid_size_side)) + j;
+
+    if(x_bucket < i32(num_grids_side) && x_bucket > -1 &&
+        y_bucket < i32(num_grids_side) && y_bucket > -1 ) {
+
+
+        var newBucket: i32 = y_bucket * i32(num_grids_side) + x_bucket;
+        if(u32(newBucket) == vBucket) {
+            continue;
+        }
+
+        var nextptr : i32 = bucket_indeces[u32(newBucket)];
+
+         loop {
+            if (nextptr == -1) {
+              break;
+            }
+            if (nextptr == i32(index)) {
+              continue;
+            }
+            let accel = calculate_accel(index, u32(nextptr));
+
+             aAccum = aAccum + accel;
+
+             continuing {
+                nextptr = i32(particlesSrc[u32(nextptr)].bptr);
+                 vMass += 1.0;
+             }
+        }
+
+    }
+      }
+
   }
 
 
@@ -126,6 +166,10 @@ fn calculate_accel(index: u32, i: u32 ) -> vec2<f32> {
      var distance_squared: f32 = distance.x + distance.y;
      var dist = sqrt(distance_squared);
 
+     if(dist > params.grid_size_side) {
+         return vec2<f32>(0.0, 0.0);
+     }
+
     var col_length = 1.0; //(sqrt(mass) + sqrt(vMass)) / 2.0; //sigma
      var col_dist = (dist) / col_length;
      var z = (col_dist + 10.22462) / 10.0;
@@ -153,4 +197,8 @@ fn compute_bucket(position: vec2<f32>) -> u32 {
     let y_bucket = u32(floor(position.y / params.grid_size_side));
 
     return y_bucket * num_grids_side + x_bucket;
+}
+
+fn check_particles(nextptr: i32) {
+
 }
