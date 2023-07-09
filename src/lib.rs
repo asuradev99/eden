@@ -12,7 +12,7 @@ pub struct Camera {
 
 pub const SAMPLE_COUNT: u32 = 4;
 pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb; // wgpu::TextureFormat::Rgba8UnormSrgb;
-pub const CIRCLE_RES: u32 = 32;
+pub const CIRCLE_RES: u32 = 16;
 pub const DEFAULT_COMPUTE_SHADER: &str = include_str!("shaders/experimental.wgsl");
 
 impl Camera {
@@ -62,14 +62,14 @@ impl Params {
             num_types: num_types,
             attraction_matrix: attraction_matrix,
             dt: 0.001, //0.001,
-            num_particles: 100000,
+            num_particles: 100,
             shader_buffer: DEFAULT_COMPUTE_SHADER.to_string(),
-            world_size: 200.0,
+            world_size: 5.0,
             well_depth: 30000.0,
             attract_coeff: 1.0,
             repulse_coeff: 1.0,
             friction_coeff: 0.9,
-            num_grids_side: 20,
+            num_grids_side: 2,
             play: true,
         }
     }
