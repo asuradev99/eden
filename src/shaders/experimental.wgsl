@@ -33,16 +33,16 @@ struct AttractionMatrixEntry {
 @group(0) @binding(4) var<storage, read_write> bucket_indeces : array<i32>;
 
 
-// https://github.com/austinEng/Project6-Vulkan-Flocking/blob/master/data/shaders/computeparticles/particle.comp
 @compute
 @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
-let NEIGHBORHOOD = array(
-    vec2<i32>(-1, -1),
+var NEIGHBORHOOD = array(
+   vec2<i32>(-1, -1),
     vec2<i32>(0, -1),
-    vec2<i32>(1, -1),
+ vec2<i32>(1, -1),
     vec2<i32>(-1, 0),
-    vec2<i32>(1, 0),
+    vec2<i32>(0, 0),
+   vec2<i32>(1, 0),
     vec2<i32>(-1, 1),
     vec2<i32>(0, 1),
     vec2<i32>(1, 1)
@@ -57,7 +57,7 @@ let NEIGHBORHOOD = array(
 
   var vPos : vec2<f32> = particlesSrc[index].pos;
   var vVel : vec2<f32> = particlesSrc[index].vel;
-  var vMass: f32 = 0.0;
+  var vMass: f32 = 0.0; // particlesSrc[index].mass;
   var aAccum : vec2<f32> = vec2<f32>(0.0, 0.0);
 
 
@@ -65,41 +65,17 @@ let NEIGHBORHOOD = array(
 
 
   let num_grids_side: u32 = u32(params.world_size / params.grid_size_side);
-  var nextptr : i32 = bucket_indeces[vBucket];
 
- loop {
-    if (nextptr == -1) {
-      break;
+   for(var i = 0; i < 9; i++) {
+
+    var x_bucket = i32(floor(vPos.x / params.grid_size_side)) + NEIGHBORHOOD[i].x;
+    var y_bucket = i32(floor(vPos.y / params.grid_size_side)) + NEIGHBORHOOD[i].y;
+
+    if(x_bucket < 0 || x_bucket >= i32(num_grids_side) || y_bucket < 0 || y_bucket >= i32(num_grids_side)) {
+        continue;
+
     }
-    if (nextptr == i32(index)) {
-      continue;
-    }
-    let accel = calculate_accel(index, u32(nextptr));
-
-     aAccum = aAccum + accel;
-
-     continuing {
-        nextptr = i32(particlesSrc[u32(nextptr)].bptr);
-        vMass += 1.0;
-     }
-  }
-
-
-  for(var i: i32 = -1; i < 2; i++) {
-      for(var j: i32 = -1; j < 2; j++) {
-
-
-    let x_bucket = i32(floor(vPos.x / params.grid_size_side)) + i;
-    let y_bucket = i32(floor(vPos.y / params.grid_size_side)) + j;
-
-    if(x_bucket < i32(num_grids_side) && x_bucket > -1 &&
-        y_bucket < i32(num_grids_side) && y_bucket > -1 ) {
-
-
         var newBucket: i32 = y_bucket * i32(num_grids_side) + x_bucket;
-        if(u32(newBucket) == vBucket) {
-            continue;
-        }
 
         var nextptr : i32 = bucket_indeces[u32(newBucket)];
 
@@ -108,44 +84,61 @@ let NEIGHBORHOOD = array(
               break;
             }
             if (nextptr == i32(index)) {
+
               continue;
             }
             let accel = calculate_accel(index, u32(nextptr));
 
              aAccum = aAccum + accel;
 
+
+             vMass += 1.0;
              continuing {
                 nextptr = i32(particlesSrc[u32(nextptr)].bptr);
-                 vMass += 1.0;
+
              }
         }
 
-    }
-      }
+
+
 
   }
 
 
-  let nvVel = (vVel + (aAccum * params.dt)) * params.friction_coeff;
+  var nvVel = (vVel + (aAccum * params.dt)) * params.friction_coeff;
 
 
   vPos = vPos + (vVel + nvVel) / 2.0 * params.dt;
 
-   if (vPos.x < 0.0 ) {
-     vPos.x = 0.0;
+  let fudge = 0.00001;
+
+   if (vPos.x < fudge ) {
+     vPos.x = fudge; //params.world_size - params.world_size / fudge;
+     nvVel.x = 0.0;
+
    }
-   if (vPos.x > params.world_size) {
-     vPos.x = params.world_size;
+   if (vPos.x > params.world_size - fudge) {
+     vPos.x = params.world_size - fudge; // / fudge;
+     nvVel.x = 0.0;
+    }
+   if (vPos.y < fudge) {
+     vPos.y = fudge; //params.world_size - params.world_size / fudge;
+     nvVel.y = 0.0;
    }
-   if (vPos.y < 0.0) {
-     vPos.y = 0.0;
-   }
-   if (vPos.y > params.world_size) {
-     vPos.y = params.world_size;
+   if (vPos.y > params.world_size - fudge) {
+     vPos.y = params.world_size - fudge; // / fudge;
+     nvVel.y = 0.0;
    }
   vVel = nvVel;
   // Write back
-  particlesDst[index] = Particle(vPos, vVel, vMass, particlesSrc[index].kind, particlesSrc[index].fptr, particlesSrc[index].bptr);
+  particlesDst[index] = Particle(vPos, vVel, vMass, particlesSrc[index].kind, particlesSrc[index].fptr, -1.0);
+
+  //Refresh bucket_indeces
+
+  //if(index < arrayLength(&bucket_indeces)) {
+  // bucket_indeces[index] = -1;
+  //}
+
 }
 
 fn calculate_accel(index: u32, i: u32 ) -> vec2<f32> {
@@ -154,7 +147,7 @@ fn calculate_accel(index: u32, i: u32 ) -> vec2<f32> {
 
      var vKind : u32 =  u32(particlesSrc[index].kind * f32(max_types));
 
-     var vMass : f32 = particlesSrc[index].mass;
+     var vMassTest : f32 = 1.0; //particlesSrc[index].mass;
 
      let pos = particlesSrc[i].pos;
      let mass = 1.0; //particlesSrc[i].mass;
@@ -168,9 +161,9 @@ fn calculate_accel(index: u32, i: u32 ) -> vec2<f32> {
 
      if(dist > params.grid_size_side) {
          return vec2<f32>(0.0, 0.0);
-     }
+      }
 
-    var col_length = 1.0; //(sqrt(mass) + sqrt(vMass)) / 2.0; //sigma
+    var col_length = 1.0; //(sqrt(mass) + sqrt(vMassTest)) / 2.0; //sigma
      var col_dist = (dist) / col_length;
      var z = (col_dist + 10.22462) / 10.0;
 
@@ -183,7 +176,7 @@ fn calculate_accel(index: u32, i: u32 ) -> vec2<f32> {
 
         mag = -1.0 * params.attract_coeff * params.well_depth * attraction_matrix[mat_index].elem * term_1 * (term_1 * z - 0.5); /// (distance_squared + 0.0000000000001);
     }
-     var accel: vec2<f32> = (distance_vector / sqrt(distance_squared + 0.0000000000001)) * mag / vMass;
+     var accel: vec2<f32> = (distance_vector / sqrt(distance_squared + 0.0000000000001)) * mag / vMassTest;
 
      return accel;
 
