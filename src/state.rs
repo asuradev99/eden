@@ -525,18 +525,16 @@ impl State {
                         accumulator_avg +=
                             ((particle.fptr as u32 - particle.bptr as u32) / 2) as u32;
 
-                        accumulator_mass = std::cmp::max(accumulator_mass, particle.mass as u32);
+                        accumulator_mass = std::cmp::max(particle.mass as u32, accumulator_mass);
                     }
                 }
 
                 accumulator_avg = accumulator_avg / particle_buffer.len() as u32;
-                accumulator_mass = accumulator_mass / particle_buffer.len() as u32;
-
+                //accumulator_mass = accumulator_mass / particle_buffer.len() as u32;
+                //println!("{:#?}", particle_buffer);
                 println!("MAXIMUM DISTANCE CHECKED: {}", accumulator);
                 println!("AVERAGE DISTANCE CHAECKED: {}", accumulator_avg);
                 println!("MAX PARTICLES / CELL: {}", accumulator_mass);
-
-                println!("{:#?}", particle_buffer[0].mass as u32);
             };
 
         let with_buffer_index =
@@ -554,7 +552,7 @@ impl State {
                     }
                 }
 
-                //println!("{:#?}", index_buffer);
+                println!("{:#?}", index_buffer);
             };
 
         println!("DEBUG PARTICLES ---------------");
@@ -599,24 +597,29 @@ impl State {
             depth_stencil_attachment: None,
         };
 
-        let mut preprocessing_command_encoder =
-            device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Preprocessing Command Encoder"),
-            });
-
         // get command encoder
         let mut command_encoder =
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
         if self.params.play {
-            //preprocessing compute pass
-            let mut ppass =
-                preprocessing_command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                    label: Some("Preprocessing Pass"),
+            let mut preprocessing_command_encoder =
+                device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Preprocessing Command Encoder"),
                 });
-            ppass.set_pipeline(&self.preprocessing_pipeline);
-            ppass.set_bind_group(0, &self.preprocessing_bind_groups[self.frame_num % 3], &[]);
-            ppass.dispatch_workgroups(self.work_group_count, 1, 1);
+
+            {
+                //preprocessing compute pass
+                let mut ppass = preprocessing_command_encoder.begin_compute_pass(
+                    &wgpu::ComputePassDescriptor {
+                        label: Some("Preprocessing Pass"),
+                    },
+                );
+                ppass.set_pipeline(&self.preprocessing_pipeline);
+                ppass.set_bind_group(0, &self.preprocessing_bind_groups[self.frame_num % 3], &[]);
+                ppass.dispatch_workgroups(self.work_group_count, 1, 1);
+            }
+            queue.submit(Some(preprocessing_command_encoder.finish()));
+
             // compute pass
             let mut cpass =
                 command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
@@ -651,7 +654,6 @@ impl State {
         self.frame_num += 1;
 
         // done
-        queue.submit(Some(preprocessing_command_encoder.finish()));
         queue.submit(Some(command_encoder.finish()));
     }
     fn post_processing(
