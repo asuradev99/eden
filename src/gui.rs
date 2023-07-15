@@ -12,6 +12,7 @@ pub enum OutputState {
     TogglePlay,
     Debug,
     None,
+    Step,
 }
 use eden::Params;
 
@@ -136,6 +137,13 @@ impl Gui {
                             &mut self.inner_params.friction_coeff,
                             0.0..=1.0,
                         ));
+
+                        ui.label("Particle Radius");
+                        ui.add(egui::Slider::new(
+                            &mut self.inner_params.particle_radius,
+                            0.0..=1.0,
+                        ));
+
                         ui.end_row();
                     });
 
@@ -156,6 +164,9 @@ impl Gui {
                     //download
                     //
                     self.state = OutputState::Debug;
+                }
+                if ui.add(egui::Button::new("Step")).clicked() {
+                    self.state = OutputState::Step;
                 }
             });
 

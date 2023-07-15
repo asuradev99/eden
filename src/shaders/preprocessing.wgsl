@@ -40,10 +40,6 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
   var i : u32 = index;
 
 
-  //if(particlesSrc[index].fptr != -1.0) {
-  //    particlesDst[u32(particlesSrc[index].fptr)].bptr = -1.0;
-  //
-
 
   loop {
     if (i >= total ) {

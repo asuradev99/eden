@@ -61,49 +61,47 @@ var NEIGHBORHOOD = array(
   var aAccum : vec2<f32> = vec2<f32>(0.0, 0.0);
 
 
+
   var vBucket: u32 = compute_bucket(vPos);
 
+  var leaderIndex = particlesSrc[index].bptr;
+  var bugFix: u32 = 0u;
 
-  let num_grids_side: u32 = u32(params.world_size / params.grid_size_side);
+  if(leaderIndex > -1.0) {
 
-   for(var i = 0; i < 9; i++) {
-
-    var x_bucket = i32(floor(vPos.x / params.grid_size_side)) + NEIGHBORHOOD[i].x;
-    var y_bucket = i32(floor(vPos.y / params.grid_size_side)) + NEIGHBORHOOD[i].y;
-
-    if(x_bucket < 0 || x_bucket >= i32(num_grids_side) || y_bucket < 0 || y_bucket >= i32(num_grids_side)) {
-        continue;
-
+    var testBucket: u32 = compute_bucket(particlesSrc[u32(leaderIndex)].pos);
+    if(vBucket != testBucket) {
+        bugFix = 1u;
     }
-        var newBucket: i32 = y_bucket * i32(num_grids_side) + x_bucket;
 
-        var nextptr : i32 = bucket_indeces[u32(newBucket)];
+  }
+
+        var nextptr : i32 = bucket_indeces[vBucket];
 
          loop {
             if (nextptr == -1) {
               break;
             }
             if (nextptr == i32(index)) {
-
+              if(bugFix == 1u) {
+                  vMass = 1.0;
+                break;
+              }
               continue;
+
             }
             let accel = calculate_accel(index, u32(nextptr));
 
-             aAccum = aAccum + accel;
+             aAccum = aAccum + params.grid_size_side * accel;
 
+                //if(nextptr - i32(particlesSrc[u32(nextptr)].bptr) != 1) {
+                //    break;
+                //}
 
-             vMass += 1.0;
              continuing {
-                nextptr = i32(particlesSrc[u32(nextptr)].bptr);
-
+                  nextptr = i32(particlesSrc[u32(nextptr)].bptr);
              }
         }
-
-
-
-
-  }
-
 
   var nvVel = (vVel + (aAccum * params.dt)) * params.friction_coeff;
 
@@ -114,31 +112,24 @@ var NEIGHBORHOOD = array(
 
    if (vPos.x < fudge ) {
      vPos.x = fudge; //params.world_size - params.world_size / fudge;
-     nvVel.x = 0.0;
+     nvVel.x = -1.0 * nvVel.x;
 
    }
    if (vPos.x > params.world_size - fudge) {
      vPos.x = params.world_size - fudge; // / fudge;
-     nvVel.x = 0.0;
+     nvVel.x = -1.0 * nvVel.x;
     }
    if (vPos.y < fudge) {
      vPos.y = fudge; //params.world_size - params.world_size / fudge;
-     nvVel.y = 0.0;
+     nvVel.y = -1.0 * nvVel.y;
    }
    if (vPos.y > params.world_size - fudge) {
      vPos.y = params.world_size - fudge; // / fudge;
-     nvVel.y = 0.0;
+     nvVel.y = -1.0 * nvVel.y;
    }
   vVel = nvVel;
   // Write back
-  particlesDst[index] = Particle(vPos, vVel, vMass, particlesSrc[index].kind, particlesSrc[index].fptr, -1.0);
-
-  //Refresh bucket_indeces
-
-  //if(index < arrayLength(&bucket_indeces)) {
-  // bucket_indeces[index] = -1;
-  //}
-
+  particlesDst[index] = Particle(vPos, vVel, vMass, particlesSrc[index].kind, particlesSrc[index].fptr, particlesSrc[index].bptr);
 }
 
 fn calculate_accel(index: u32, i: u32 ) -> vec2<f32> {
@@ -157,26 +148,23 @@ fn calculate_accel(index: u32, i: u32 ) -> vec2<f32> {
 
      var distance = pow(distance_vector, vec2<f32>(2.0, 2.0));
      var distance_squared: f32 = distance.x + distance.y;
-     var dist = sqrt(distance_squared);
+     var dist = sqrt(distance_squared) / params.grid_size_side;
 
-     if(dist > params.grid_size_side) {
-         return vec2<f32>(0.0, 0.0);
-      }
-
-    var col_length = 1.0; //(sqrt(mass) + sqrt(vMassTest)) / 2.0; //sigma
-     var col_dist = (dist) / col_length;
-     var z = (col_dist + 10.22462) / 10.0;
+     var beta: f32 = 1.0 / params.grid_size_side;
 
       var mag = 0.0;
-     if(col_dist <= 1.0) {
-        mag = params.repulse_coeff  * (params.well_depth * col_dist - params.well_depth);
-     } else {
-        var term_1 = pow(col_length, 6.0) / pow(z, 7.0);
-        var mat_index = vKind * max_types + kind;
 
-        mag = -1.0 * params.attract_coeff * params.well_depth * attraction_matrix[mat_index].elem * term_1 * (term_1 * z - 0.5); /// (distance_squared + 0.0000000000001);
-    }
-     var accel: vec2<f32> = (distance_vector / sqrt(distance_squared + 0.0000000000001)) * mag / vMassTest;
+     if(dist < beta) {
+        mag = dist / beta - 1.0;
+     } else if (dist > beta && dist < 1.0) {
+         var mat_index = vKind * max_types + kind;
+         mag = attraction_matrix[mat_index].elem * (1.0 - (abs((2.0 * dist) - 1.0 - beta) / (1.0 - beta)));
+     } else {
+         mag = 0.0;
+         return vec2(0.0, 0.0);
+     }
+
+     var accel: vec2<f32> = params.well_depth * (distance_vector / sqrt(distance_squared + 0.0000000000001)) * mag / vMassTest;
 
      return accel;
 

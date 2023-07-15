@@ -9,12 +9,14 @@ use wgpu::{util::DeviceExt, TextureView};
 pub struct State {
     particle_bind_groups: Vec<wgpu::BindGroup>,
     preprocessing_bind_groups: Vec<wgpu::BindGroup>,
+    cleanup_bind_groups: Vec<wgpu::BindGroup>,
     pub active_particles: u32,
     pub particle_buffers: Vec<wgpu::Buffer>,
     pub bucket_indeces_buffer: wgpu::Buffer,
     circle_buffer: wgpu::Buffer,
     compute_pipeline: wgpu::ComputePipeline,
     preprocessing_pipeline: wgpu::ComputePipeline,
+    cleanup_pipeline: wgpu::ComputePipeline,
     render_pipeline: wgpu::RenderPipeline,
     work_group_count: u32,
     frame_num: usize,
@@ -72,6 +74,11 @@ impl State {
         let compute_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(&params.shader_buffer)),
+        });
+
+        let cleanup_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/cleanup.wgsl"))),
         });
 
         //initialize vertex and fragment shaders
@@ -249,6 +256,52 @@ impl State {
                 label: None,
             });
 
+        let cleanup_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    //input / source buffer
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: wgpu::BufferSize::new(
+                                (params.num_particles * (mem::size_of::<Particle>() as u32)) as _,
+                            ), //CHANGE SIZE IF ISSUES
+                        },
+                        count: None,
+                    },
+                    //output / destination buffer
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: false },
+                            has_dynamic_offset: false,
+                            min_binding_size: wgpu::BufferSize::new(
+                                (params.num_particles * (mem::size_of::<Particle>() as u32)) as _,
+                            ),
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: false },
+                            has_dynamic_offset: false,
+                            min_binding_size: wgpu::BufferSize::new(
+                                bucket_indeces_data.len() as u64
+                                    * std::mem::size_of::<i32>() as u64,
+                            ),
+                        },
+                        count: None,
+                    },
+                ],
+                label: Some("Cleanup Bind Group Layout"),
+            });
+
         let preprocessing_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Preprocessing"),
@@ -260,6 +313,13 @@ impl State {
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Compute"),
                 bind_group_layouts: &[&compute_bind_group_layout],
+                push_constant_ranges: &[],
+            });
+
+        let cleanup_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Preprocessing"),
+                bind_group_layouts: &[&cleanup_group_layout],
                 push_constant_ranges: &[],
             });
 
@@ -345,12 +405,20 @@ impl State {
             entry_point: "main",
         });
 
+        // create compute pipeline
+        let cleanup_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("Cleanup Pipeline"),
+            layout: Some(&cleanup_pipeline_layout),
+            module: &cleanup_shader,
+            entry_point: "main",
+        });
+
         //buffer for particle circle coordinates
 
         //  let circle_buffer_data = [-0.01f32, -0.02, 0.01, -0.02, 0.00, 0.02];
         let circle_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
-            contents: bytemuck::bytes_of(&eden::generate_circle(0.2)),
+            contents: bytemuck::bytes_of(&eden::generate_circle(params.particle_radius)),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
 
@@ -366,6 +434,9 @@ impl State {
         let mut particle_buffers = Vec::<wgpu::Buffer>::new();
         let mut preprocessing_bind_groups = Vec::<wgpu::BindGroup>::new();
         let mut particle_bind_groups = Vec::<wgpu::BindGroup>::new();
+
+        let mut cleanup_bind_groups = Vec::<wgpu::BindGroup>::new();
+
         for i in 0..3 {
             particle_buffers.push(
                 device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -445,6 +516,25 @@ impl State {
             }));
         }
 
+        cleanup_bind_groups.push(device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &cleanup_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: particle_buffers[2].as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: particle_buffers[0].as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: bucket_indeces_buffer.as_entire_binding(),
+                },
+            ],
+            label: None,
+        }));
+
         // calculates number of work groups from PARTICLES_PER_GROUP constant
         let work_group_count = u32::min(params.num_particles, 65535);
 
@@ -457,6 +547,7 @@ impl State {
         State {
             particle_bind_groups,
             preprocessing_bind_groups,
+            cleanup_bind_groups,
             active_particles,
             particle_buffers,
             bucket_indeces_buffer,
@@ -464,6 +555,7 @@ impl State {
             compute_pipeline,
             preprocessing_pipeline,
             render_pipeline,
+            cleanup_pipeline,
             work_group_count,
             frame_num: 0,
             camera,
@@ -532,6 +624,9 @@ impl State {
                 accumulator_avg = accumulator_avg / particle_buffer.len() as u32;
                 //accumulator_mass = accumulator_mass / particle_buffer.len() as u32;
                 //println!("{:#?}", particle_buffer);
+                for particle in particle_buffer {
+                    println!("{} {} {} ", particle.fptr, particle.bptr, particle.mass);
+                }
                 println!("MAXIMUM DISTANCE CHECKED: {}", accumulator);
                 println!("AVERAGE DISTANCE CHAECKED: {}", accumulator_avg);
                 println!("MAX PARTICLES / CELL: {}", accumulator_mass);
@@ -552,7 +647,7 @@ impl State {
                     }
                 }
 
-                println!("{:#?}", index_buffer);
+                // println!("{:#?}", index_buffer);
             };
 
         println!("DEBUG PARTICLES ---------------");
@@ -560,7 +655,7 @@ impl State {
         wgpu::util::DownloadBuffer::read_buffer(
             device,
             queue,
-            &self.particle_buffers[0].slice(..),
+            &self.particle_buffers[2].slice(..),
             with_buffer,
         );
 
@@ -600,6 +695,8 @@ impl State {
         // get command encoder
         let mut command_encoder =
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        let mut cleanup_command_encoder =
+            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
         if self.params.play {
             let mut preprocessing_command_encoder =
@@ -615,7 +712,7 @@ impl State {
                     },
                 );
                 ppass.set_pipeline(&self.preprocessing_pipeline);
-                ppass.set_bind_group(0, &self.preprocessing_bind_groups[self.frame_num % 3], &[]);
+                ppass.set_bind_group(0, &self.preprocessing_bind_groups[0], &[]);
                 ppass.dispatch_workgroups(self.work_group_count, 1, 1);
             }
             queue.submit(Some(preprocessing_command_encoder.finish()));
@@ -624,8 +721,17 @@ impl State {
             let mut cpass =
                 command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
             cpass.set_pipeline(&self.compute_pipeline);
-            cpass.set_bind_group(0, &self.particle_bind_groups[self.frame_num % 3], &[]);
+            cpass.set_bind_group(0, &self.particle_bind_groups[0], &[]);
             cpass.dispatch_workgroups(self.work_group_count, 1, 1);
+
+            let mut clpass =
+                cleanup_command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                    label: Some("Cleanup Pass"),
+                });
+            clpass.set_pipeline(&self.cleanup_pipeline);
+            clpass.set_bind_group(0, &self.cleanup_bind_groups[0], &[]);
+
+            clpass.dispatch_workgroups(self.work_group_count, 1, 1);
         } else {
             self.frame_num -= 1;
         }
@@ -638,10 +744,7 @@ impl State {
             //load camera uniform buffer
             rpass.set_bind_group(0, &self.camera_bind_group, &[]);
             // render dst particles
-            rpass.set_vertex_buffer(
-                0,
-                self.particle_buffers[((self.frame_num * 2) + 2) % 3].slice(..),
-            );
+            rpass.set_vertex_buffer(0, self.particle_buffers[0].slice(..));
             rpass.set_vertex_buffer(1, self.circle_buffer.slice(..));
             // the three instance-local vertices ????
             rpass.draw(
@@ -655,6 +758,7 @@ impl State {
 
         // done
         queue.submit(Some(command_encoder.finish()));
+        queue.submit(Some(cleanup_command_encoder.finish()));
     }
     fn post_processing(
         &mut self,

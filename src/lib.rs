@@ -45,6 +45,7 @@ pub struct Params {
     pub num_types: u32,
     pub num_grids_side: u32,
     pub play: bool,
+    pub particle_radius: f32,
 }
 
 impl Params {
@@ -62,15 +63,16 @@ impl Params {
             num_types: num_types,
             attraction_matrix: attraction_matrix,
             dt: 0.001, //0.001,
-            num_particles: 100,
+            num_particles: 1000,
             shader_buffer: DEFAULT_COMPUTE_SHADER.to_string(),
-            world_size: 5.0,
-            well_depth: 30000.0,
+            world_size: 50.0,
+            well_depth: 30.0,
             attract_coeff: 1.0,
             repulse_coeff: 1.0,
             friction_coeff: 0.9,
-            num_grids_side: 2,
+            num_grids_side: 1,
             play: true,
+            particle_radius: 1.0,
         }
     }
 

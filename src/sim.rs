@@ -377,6 +377,7 @@ fn start(
                     gui::OutputState::Debug => {
                         example.debug(&device, &queue);
                     }
+                    gui::OutputState::Step => {}
                     gui::OutputState::None => (),
                 }
                 if (test_ui.state == gui::OutputState::ReloadRequired) {}
