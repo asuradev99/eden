@@ -67,16 +67,28 @@ var NEIGHBORHOOD = array(
   var leaderIndex = particlesSrc[index].bptr;
   var bugFix: u32 = 0u;
 
+  let num_grids_side: u32 = u32(params.world_size / params.grid_size_side);
   if(leaderIndex > -1.0) {
 
     var testBucket: u32 = compute_bucket(particlesSrc[u32(leaderIndex)].pos);
     if(vBucket != testBucket) {
         bugFix = 1u;
     }
-
   }
 
-        var nextptr : i32 = bucket_indeces[vBucket];
+    for(var i = 0; i < 9; i++) {
+         var x_bucket = i32(floor(vPos.x / params.grid_size_side)) + NEIGHBORHOOD[i].x;
+         var y_bucket = i32(floor(vPos.y / params.grid_size_side)) + NEIGHBORHOOD[i].y;
+
+        if(x_bucket < 0 || x_bucket >= i32(num_grids_side) || y_bucket < 0 || y_bucket >= i32(num_grids_side)) {
+            continue;
+        }
+
+        vMass += 1.0;
+
+
+        var newBucket: i32 = y_bucket * i32(num_grids_side) + x_bucket;
+        var nextptr : i32 = bucket_indeces[u32(newBucket)];
 
          loop {
             if (nextptr == -1) {
@@ -84,24 +96,19 @@ var NEIGHBORHOOD = array(
             }
             if (nextptr == i32(index)) {
               if(bugFix == 1u) {
-                  vMass = 1.0;
                 break;
               }
               continue;
-
             }
             let accel = calculate_accel(index, u32(nextptr));
-
              aAccum = aAccum + params.grid_size_side * accel;
-
-                //if(nextptr - i32(particlesSrc[u32(nextptr)].bptr) != 1) {
-                //    break;
-                //}
-
              continuing {
                   nextptr = i32(particlesSrc[u32(nextptr)].bptr);
              }
         }
+
+
+    }
 
   var nvVel = (vVel + (aAccum * params.dt)) * params.friction_coeff;
 
