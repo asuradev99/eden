@@ -84,7 +84,7 @@ var NEIGHBORHOOD = array(
             continue;
         }
 
-        vMass += 1.0;
+       // vMass += 1.0;
 
 
         var newBucket: i32 = y_bucket * i32(num_grids_side) + x_bucket;
@@ -185,8 +185,4 @@ fn compute_bucket(position: vec2<f32>) -> u32 {
     let y_bucket = u32(floor(position.y / params.grid_size_side));
 
     return y_bucket * num_grids_side + x_bucket;
-}
-
-fn check_particles(nextptr: i32) {
-
 }

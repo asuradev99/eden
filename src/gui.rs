@@ -1,8 +1,11 @@
 use egui::{self, ScrollArea, TextEdit};
 
+use std::fs;
+
 use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
 
+use glob::glob;
 use winit::window::Window;
 
 use wgpu::{Device, SurfaceConfiguration, TextureView};
@@ -23,6 +26,8 @@ pub struct Gui {
     pub state: OutputState,
     inner_params: Params,
     pub frame_rate: f32,
+    pub shader_options: Vec<String>,
+    pub selected_shader_file: String,
 }
 
 impl Gui {
@@ -40,6 +45,18 @@ impl Gui {
         let inner_params = Params::new();
         let mut frame_rate = 0.0;
 
+        let mut shader_options: Vec<String> = Vec::new();
+        let selected_shader_file = String::from("experimental.wgsl");
+
+        for entry in glob("./shaders/*").expect("Failed to read glob pattern") {
+            match entry {
+                Ok(path) => {
+                    shader_options.push(String::from(path.file_name().unwrap().to_str().unwrap()))
+                }
+                Err(e) => println!("{:?}", e),
+            }
+        }
+
         Self {
             platform,
             egui_rpass,
@@ -47,6 +64,8 @@ impl Gui {
             state,
             inner_params,
             frame_rate,
+            shader_options,
+            selected_shader_file,
         }
     }
     pub fn ui(&mut self) {
@@ -137,6 +156,7 @@ impl Gui {
                             &mut self.inner_params.friction_coeff,
                             0.0..=1.0,
                         ));
+                        ui.end_row();
 
                         ui.label("Particle Radius");
                         ui.add(egui::Slider::new(
@@ -145,6 +165,34 @@ impl Gui {
                         ));
 
                         ui.end_row();
+                        ui.label("Compute Shader File");
+                        egui::ComboBox::from_label("")
+                            .selected_text(format!("{}", self.selected_shader_file))
+                            .show_ui(ui, |ui| {
+                                for file in &self.shader_options {
+                                    if ui
+                                        .add(egui::SelectableLabel::new(
+                                            self.selected_shader_file == *file,
+                                            file,
+                                        ))
+                                        .clicked()
+                                    {
+                                        self.selected_shader_file = file.clone();
+                                        let filename = String::from("shaders/")
+                                            + &self.selected_shader_file.clone();
+                                        self.inner_params.shader_buffer =
+                                            fs::read_to_string(&filename[..]).unwrap();
+                                        println!("{:?}", self.inner_params.shader_buffer);
+                                    }
+                                }
+                            });
+
+                        ui.end_row();
+
+                        egui::widgets::color_picker::color_edit_button_rgb(
+                            ui,
+                            &mut [255.0, 0.0, 0.0],
+                        );
                     });
 
                 if ui.add(egui::Button::new("Restart Simulation")).clicked() {

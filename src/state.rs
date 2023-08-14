@@ -655,7 +655,7 @@ impl State {
         wgpu::util::DownloadBuffer::read_buffer(
             device,
             queue,
-            &self.particle_buffers[2].slice(..),
+            &self.particle_buffers[1].slice(..),
             with_buffer,
         );
 
@@ -674,6 +674,7 @@ impl State {
         resolve_view: Option<&TextureView>,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
+        play: bool,
     ) {
         // create render pass descriptor and its color attachments
         let color_attachments = [Some(wgpu::RenderPassColorAttachment {
@@ -698,25 +699,26 @@ impl State {
         let mut cleanup_command_encoder =
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-        if self.params.play {
-            let mut preprocessing_command_encoder =
-                device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("Preprocessing Command Encoder"),
-                });
+        if play {
+            for i in 0..1 {
+                let mut preprocessing_command_encoder =
+                    device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                        label: Some("Preprocessing Command Encoder"),
+                    });
 
-            {
-                //preprocessing compute pass
-                let mut ppass = preprocessing_command_encoder.begin_compute_pass(
-                    &wgpu::ComputePassDescriptor {
-                        label: Some("Preprocessing Pass"),
-                    },
-                );
-                ppass.set_pipeline(&self.preprocessing_pipeline);
-                ppass.set_bind_group(0, &self.preprocessing_bind_groups[0], &[]);
-                ppass.dispatch_workgroups(self.work_group_count, 1, 1);
+                {
+                    //preprocessing compute pass
+                    let mut ppass = preprocessing_command_encoder.begin_compute_pass(
+                        &wgpu::ComputePassDescriptor {
+                            label: Some("Preprocessing Pass"),
+                        },
+                    );
+                    ppass.set_pipeline(&self.preprocessing_pipeline);
+                    ppass.set_bind_group(0, &self.preprocessing_bind_groups[0], &[]);
+                    ppass.dispatch_workgroups(self.work_group_count, 1, 1);
+                }
+                queue.submit(Some(preprocessing_command_encoder.finish()));
             }
-            queue.submit(Some(preprocessing_command_encoder.finish()));
-
             // compute pass
             let mut cpass =
                 command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });

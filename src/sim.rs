@@ -355,17 +355,7 @@ fn start(
                 //render ui
 
                 let msaaview = depthframe.create_view(&wgpu::TextureViewDescriptor::default());
-                if (SAMPLE_COUNT == 1) {
-                    example.render(&view, None, &device, &queue);
-                } else {
-                    example.render(&msaaview, Some(&view), &device, &queue);
-                }
 
-                test_ui.render(&window, &device, &view, &queue);
-
-                frame.present();
-
-                test_ui.cleanup();
                 match test_ui.state {
                     gui::OutputState::ReloadRequired => {
                         let params = test_ui.gen_params();
@@ -377,9 +367,34 @@ fn start(
                     gui::OutputState::Debug => {
                         example.debug(&device, &queue);
                     }
-                    gui::OutputState::Step => {}
-                    gui::OutputState::None => (),
+                    gui::OutputState::Step => {
+                        if (SAMPLE_COUNT == 1) {
+                            example.render(&view, None, &device, &queue, true);
+                        } else {
+                            example.render(&msaaview, Some(&view), &device, &queue, true);
+                        }
+                    }
+                    gui::OutputState::None => {
+                        if (SAMPLE_COUNT == 1) {
+                            example.render(&view, None, &device, &queue, example.params.play);
+                        } else {
+                            example.render(
+                                &msaaview,
+                                Some(&view),
+                                &device,
+                                &queue,
+                                example.params.play,
+                            );
+                        }
+                    }
                 }
+
+                test_ui.render(&window, &device, &view, &queue);
+
+                frame.present();
+
+                test_ui.cleanup();
+
                 if (test_ui.state == gui::OutputState::ReloadRequired) {}
                 #[cfg(target_arch = "wasm32")]
                 {

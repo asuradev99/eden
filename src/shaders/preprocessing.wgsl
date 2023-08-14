@@ -34,6 +34,10 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
   var vVel : vec2<f32> = particlesSrc[index].vel;
 
+  var vMass : f32 = particlesSrc[index].mass;
+
+  vMass += 4.0;
+
   var bucket = compute_bucket(vPos);
   var newIndex: f32 = -1.0;
 
@@ -62,7 +66,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
   //write back
   particlesDst[index].pos = vPos;
   particlesDst[index].vel = vVel;
-  particlesDst[index].mass = particlesSrc[index].mass;
+  particlesDst[index].mass = vMass;
   particlesDst[index].kind = particlesSrc[index].kind;
   particlesDst[index].fptr = newIndex;
 
