@@ -24,6 +24,8 @@ pub enum ShaderStage {
     Fragment,
     Compute,
 }
+use crate::state::State;
+
 use super::gui;
 use super::state;
 
@@ -84,10 +86,9 @@ async fn setup(title: &str) -> Setup {
         (size, surface)
     };
 
-    let adapter =
-        wgpu::util::initialize_adapter_from_env_or_default(&instance, backends, Some(&surface))
-            .await
-            .expect("No suitable GPU adapters found on the system!");
+    let adapter = wgpu::util::initialize_adapter_from_env_or_default(&instance, Some(&surface))
+        .await
+        .expect("No suitable GPU adapters found on the system!");
 
     let adapter_info = adapter.get_info();
     println!("Using {} ({:?})", adapter_info.name, adapter_info.backend);
@@ -95,26 +96,26 @@ async fn setup(title: &str) -> Setup {
     let optional_features = wgpu::Features::empty();
     let required_features = wgpu::Features::empty();
     let adapter_features = adapter.features();
-    // assert!(
-    //     adapter_features.contains(required_features),
-    //     "Adapter does not support required features for this example: {:?}",
-    //     required_features - adapter_features
-    // );
+    assert!(
+        adapter_features.contains(required_features),
+        "Adapter does not support required features for this example: {:?}",
+        required_features - adapter_features
+    );
 
-    // let required_downlevel_capabilities = E::required_downlevel_capabilities();
-    // let downlevel_capabilities = adapter.get_downlevel_capabilities();
-    // assert!(
-    //     downlevel_capabilities.shader_model >= required_downlevel_capabilities.shader_model,
-    //     "Adapter does not support the minimum shader model required to run this example: {:?}",
-    //     required_downlevel_capabilities.shader_model
-    // );
-    // assert!(
-    //     downlevel_capabilities
-    //         .flags
-    //         .contains(required_downlevel_capabilities.flags),
-    //     "Adapter does not support the downlevel capabilities required to run this example: {:?}",
-    //     required_downlevel_capabilities.flags - downlevel_capabilities.flags
-    // );
+    let required_downlevel_capabilities = State::required_downlevel_capabilities();
+    let downlevel_capabilities = adapter.get_downlevel_capabilities();
+    assert!(
+        downlevel_capabilities.shader_model >= required_downlevel_capabilities.shader_model,
+        "Adapter does not support the minimum shader model required to run this example: {:?}",
+        required_downlevel_capabilities.shader_model
+    );
+    assert!(
+        downlevel_capabilities
+            .flags
+            .contains(required_downlevel_capabilities.flags),
+        "Adapter does not support the downlevel capabilities required to run this example: {:?}",
+        required_downlevel_capabilities.flags - downlevel_capabilities.flags
+    );
 
     // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the surface.
     let needed_limits = state::State::required_limits().using_resolution(adapter.limits());
@@ -194,7 +195,7 @@ fn start(
         *control_flow = ControlFlow::Poll;
         match event {
             event::Event::RedrawEventsCleared => {
-                spawner.run_until_stalled();
+                //spawner.run_until_stalled();
                 window.request_redraw();
             }
             event::Event::WindowEvent {
@@ -312,7 +313,7 @@ fn start(
                     accum_time += last_frame_inst.elapsed().as_secs_f32();
                     last_frame_inst = Instant::now();
                     frame_count += 1;
-                    if frame_count == 100 {
+                    if frame_count == 10 {
                         test_ui.frame_rate = accum_time * 1000.0 / frame_count as f32;
 
                         // println!(
@@ -346,7 +347,7 @@ fn start(
                     dimension: wgpu::TextureDimension::D2,
                     format: TEXTURE_FORMAT,
                     usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-                    view_formats: &[],
+                    view_formats: &[TEXTURE_FORMAT],
                 });
 
                 let view = frame
@@ -377,6 +378,7 @@ fn start(
                     gui::OutputState::None => {
                         if (SAMPLE_COUNT == 1) {
                             example.render(&view, None, &device, &queue, example.params.play);
+                        // test_ui.render(&window, &device, &view, None, &queue);
                         } else {
                             example.render(
                                 &msaaview,
@@ -388,14 +390,12 @@ fn start(
                         }
                     }
                 }
-
                 test_ui.render(&window, &device, &view, &queue);
 
                 frame.present();
 
                 test_ui.cleanup();
 
-                if (test_ui.state == gui::OutputState::ReloadRequired) {}
                 #[cfg(target_arch = "wasm32")]
                 {
                     if let Some(offscreen_canvas_setup) = &offscreen_canvas_setup {

@@ -30,7 +30,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
   particlesDst[index] = Particle(vPos, vVel, vMass, particlesSrc[index].kind, particlesSrc[index].fptr, particlesSrc[index].bptr);
 
    if(index < arrayLength(&bucket_indeces)) {
-      bucket_indeces[index] = -1;
+      // bucket_indeces[index] = -1;
   }
 
 }

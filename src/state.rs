@@ -382,7 +382,7 @@ impl State {
             },
             depth_stencil: None,
             multisample: wgpu::MultisampleState {
-                count: SAMPLE_COUNT,
+                count: 4,
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
@@ -437,7 +437,7 @@ impl State {
 
         let mut cleanup_bind_groups = Vec::<wgpu::BindGroup>::new();
 
-        for i in 0..3 {
+        for i in 0..2 {
             particle_buffers.push(
                 device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some(&format!("Particle Buffer {}", i)),
@@ -463,65 +463,12 @@ impl State {
         // create two bind groups, one for each buffer as the src
         // where the alternate buffer is used as the dst
 
-        for i in 0..3 {
-            preprocessing_bind_groups.push(device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &preprocessing_bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: sim_param_buffer.as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: particle_buffers[(i * 2) % 3].as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 2,
-                        resource: particle_buffers[((i * 2) + 1) % 3].as_entire_binding(), // bind to opposite buffer
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 3,
-                        resource: bucket_indeces_buffer.as_entire_binding(),
-                    },
-                ],
-                label: None,
-            }));
-        }
-        for i in 0..3 {
-            particle_bind_groups.push(device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &compute_bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: sim_param_buffer.as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: particle_buffers[((i * 2) + 1) % 3].as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 2,
-                        resource: particle_buffers[((i * 2) + 2) % 3].as_entire_binding(), // bind to opposite buffer
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 3,
-                        resource: attraction_matrix_buffer.as_entire_binding(), // bind to opposite buffer
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 4,
-                        resource: bucket_indeces_buffer.as_entire_binding(),
-                    },
-                ],
-                label: None,
-            }));
-        }
-
-        cleanup_bind_groups.push(device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &cleanup_group_layout,
+        preprocessing_bind_groups.push(device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &preprocessing_bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: particle_buffers[2].as_entire_binding(),
+                    resource: sim_param_buffer.as_entire_binding(),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
@@ -529,11 +476,61 @@ impl State {
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
+                    resource: particle_buffers[1].as_entire_binding(), // bind to opposite buffer
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
                     resource: bucket_indeces_buffer.as_entire_binding(),
                 },
             ],
             label: None,
         }));
+
+        particle_bind_groups.push(device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &compute_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: sim_param_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: particle_buffers[1].as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: particle_buffers[0].as_entire_binding(), // bind to opposite buffer
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: attraction_matrix_buffer.as_entire_binding(), // bind to opposite buffer
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: bucket_indeces_buffer.as_entire_binding(),
+                },
+            ],
+            label: None,
+        }));
+        //
+        // cleanup_bind_groups.push(device.create_bind_group(&wgpu::BindGroupDescriptor {
+        //     layout: &cleanup_group_layout,
+        //     entries: &[
+        //         wgpu::BindGroupEntry {
+        //             binding: 0,
+        //             resource: particle_buffers[2].as_entire_binding(),
+        //         },
+        //         wgpu::BindGroupEntry {
+        //             binding: 1,
+        //             resource: particle_buffers[0].as_entire_binding(),
+        //         },
+        //         wgpu::BindGroupEntry {
+        //             binding: 2,
+        //             resource: bucket_indeces_buffer.as_entire_binding(),
+        //         },
+        //     ],
+        //     label: None,
+        // }));
 
         // calculates number of work groups from PARTICLES_PER_GROUP constant
         let work_group_count = u32::min(params.num_particles, 65535);
@@ -688,7 +685,7 @@ impl State {
             },
         })];
         let render_pass_descriptor = wgpu::RenderPassDescriptor {
-            label: None,
+            label: Some("My Render Pass"),
             color_attachments: &color_attachments,
             depth_stencil_attachment: None,
         };
@@ -700,25 +697,25 @@ impl State {
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
         if play {
-            for i in 0..1 {
-                let mut preprocessing_command_encoder =
-                    device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                        label: Some("Preprocessing Command Encoder"),
-                    });
+            //for i in 0..1 {
+            let mut preprocessing_command_encoder =
+                device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Preprocessing Command Encoder"),
+                });
 
-                {
-                    //preprocessing compute pass
-                    let mut ppass = preprocessing_command_encoder.begin_compute_pass(
-                        &wgpu::ComputePassDescriptor {
-                            label: Some("Preprocessing Pass"),
-                        },
-                    );
-                    ppass.set_pipeline(&self.preprocessing_pipeline);
-                    ppass.set_bind_group(0, &self.preprocessing_bind_groups[0], &[]);
-                    ppass.dispatch_workgroups(self.work_group_count, 1, 1);
-                }
-                queue.submit(Some(preprocessing_command_encoder.finish()));
+            {
+                //preprocessing compute pass
+                let mut ppass = preprocessing_command_encoder.begin_compute_pass(
+                    &wgpu::ComputePassDescriptor {
+                        label: Some("Preprocessing Pass"),
+                    },
+                );
+                ppass.set_pipeline(&self.preprocessing_pipeline);
+                ppass.set_bind_group(0, &self.preprocessing_bind_groups[0], &[]);
+                ppass.dispatch_workgroups(self.work_group_count, 1, 1);
             }
+            queue.submit(Some(preprocessing_command_encoder.finish()));
+            //}
             // compute pass
             let mut cpass =
                 command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
@@ -726,14 +723,14 @@ impl State {
             cpass.set_bind_group(0, &self.particle_bind_groups[0], &[]);
             cpass.dispatch_workgroups(self.work_group_count, 1, 1);
 
-            let mut clpass =
-                cleanup_command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                    label: Some("Cleanup Pass"),
-                });
-            clpass.set_pipeline(&self.cleanup_pipeline);
-            clpass.set_bind_group(0, &self.cleanup_bind_groups[0], &[]);
-
-            clpass.dispatch_workgroups(self.work_group_count, 1, 1);
+            // let mut clpass =
+            //     cleanup_command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            //         label: Some("Cleanup Pass"),
+            //     });
+            // clpass.set_pipeline(&self.cleanup_pipeline);
+            // clpass.set_bind_group(0, &self.cleanup_bind_groups[0], &[]);
+            //
+            // clpass.dispatch_workgroups(self.work_group_count, 1, 1);
         } else {
             self.frame_num -= 1;
         }
@@ -760,7 +757,7 @@ impl State {
 
         // done
         queue.submit(Some(command_encoder.finish()));
-        queue.submit(Some(cleanup_command_encoder.finish()));
+        // queue.submit(Some(cleanup_command_encoder.finish()));
     }
     fn post_processing(
         &mut self,

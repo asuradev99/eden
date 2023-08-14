@@ -11,7 +11,7 @@ pub struct Camera {
 }
 
 pub const SAMPLE_COUNT: u32 = 4;
-pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb; // wgpu::TextureFormat::Rgba8UnormSrgb;
+pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8Unorm; // wgpu::TextureFormat::Rgba8UnormSrgb;
 pub const CIRCLE_RES: u32 = 16;
 pub const DEFAULT_COMPUTE_SHADER: &str = include_str!("shaders/experimental.wgsl");
 

@@ -18,6 +18,8 @@ pub enum OutputState {
     Step,
 }
 use eden::Params;
+use eden::SAMPLE_COUNT;
+use eden::TEXTURE_FORMAT;
 
 pub struct Gui {
     pub platform: Platform,
@@ -32,7 +34,7 @@ pub struct Gui {
 
 impl Gui {
     pub fn new(window: &Window, device: &Device, config: &SurfaceConfiguration) -> Self {
-        let egui_rpass = RenderPass::new(&device, config.format, 1);
+        let egui_rpass = RenderPass::new(device, TEXTURE_FORMAT, 1);
         let platform = Platform::new(PlatformDescriptor {
             physical_width: window.inner_size().width as u32,
             physical_height: window.inner_size().height as u32,
