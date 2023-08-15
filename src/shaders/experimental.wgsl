@@ -110,8 +110,12 @@ var NEIGHBORHOOD = array(
 
     }
 
+
+   aAccum = normalize(aAccum) * clamp(length(aAccum), 0.0, 100.0 * params.grid_size_side / (params.dt));
+
   var nvVel = (vVel + (aAccum * params.dt)) * params.friction_coeff;
 
+   // nvVel = normalize(nvVel) * clamp(length(nvVel), 0.0, params.grid_size_side / (params.dt * 20.0));
 
   vPos = vPos + (vVel + nvVel) / 2.0 * params.dt;
 
