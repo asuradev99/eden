@@ -40,7 +40,7 @@ struct Setup {
     queue: wgpu::Queue,
 }
 
-async fn setup(title: &str) -> Setup {
+async fn setup(_title: &str) -> Setup {
     #[cfg(not(target_arch = "wasm32"))]
     {
         env_logger::init();
@@ -157,7 +157,7 @@ fn start(
         queue,
     }: Setup,
 ) {
-    let spawner = Spawner::new();
+    let _spawner = Spawner::new();
     let mut config = wgpu::SurfaceConfiguration {
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
         format: TEXTURE_FORMAT,
@@ -178,7 +178,7 @@ fn start(
 
     let mut last_frame_inst = Instant::now();
     let (mut frame_count, mut accum_time) = (0, 0.0);
-    let mut frame_rate: f32 = 0.0;
+    let _frame_rate: f32 = 0.0;
 
     log::info!("Entering render loop...");
 
@@ -240,7 +240,7 @@ fn start(
 
                 WindowEvent::MouseWheel { delta, .. } => {
                     match delta {
-                        event::MouseScrollDelta::LineDelta(x, y) => {
+                        event::MouseScrollDelta::LineDelta(_x, y) => {
                             example.camera.zoom *= f32::powf(1.25, y);
                             //println!("New camera zoom: {:?}", example.camera.zoom);
                             queue.write_buffer(
@@ -253,10 +253,10 @@ fn start(
                     }
                 }
                 WindowEvent::MouseInput {
-                    device_id,
+                    device_id: _,
                     state,
                     button,
-                    modifiers,
+                    modifiers: _,
                 } => {
                     match button {
                         MouseButton::Right => match state {
@@ -275,12 +275,12 @@ fn start(
                     }
                 }
                 WindowEvent::CursorMoved {
-                    device_id,
+                    device_id: _,
                     position,
-                    modifiers,
+                    modifiers: _,
                 } => {
-                    if (mouseState) {
-                        if (lastMousePosition.x != -1.0) {
+                    if mouseState {
+                        if lastMousePosition.x != -1.0 {
                             let deltaPosition = PhysicalPosition::<f64> {
                                 x: (position.x - lastMousePosition.x) / (config.width as f64),
                                 y: (position.y - lastMousePosition.y) / (config.height as f64),
@@ -369,14 +369,14 @@ fn start(
                         example.debug(&device, &queue);
                     }
                     gui::OutputState::Step => {
-                        if (SAMPLE_COUNT == 1) {
+                        if SAMPLE_COUNT == 1 {
                             example.render(&view, None, &device, &queue, true);
                         } else {
                             example.render(&msaaview, Some(&view), &device, &queue, true);
                         }
                     }
                     gui::OutputState::None => {
-                        if (SAMPLE_COUNT == 1) {
+                        if SAMPLE_COUNT == 1 {
                             example.render(&view, None, &device, &queue, example.params.play);
                         // test_ui.render(&window, &device, &view, None, &queue);
                         } else {

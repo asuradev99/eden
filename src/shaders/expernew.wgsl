@@ -1,6 +1,3 @@
-
-
-
 struct Particle {
   pos : vec2<f32>,
   vel : vec2<f32>,
@@ -62,23 +59,26 @@ var NEIGHBORHOOD = array(
 
 
 
-  var vBucket: u32 = compute_bucket(vPos);
+  var vBucket: u32 = compute_bucket(vPos, vMass);
 
   var leaderIndex = particlesSrc[index].bptr;
   var bugFix: u32 = 0u;
 
-  let num_grids_side: u32 = u32(params.world_size / params.grid_size_side);
+  let num_grids_side: u32 = u32(vMass);
   if(leaderIndex > -1.0) {
 
-    var testBucket: u32 = compute_bucket(particlesSrc[u32(leaderIndex)].pos);
+    var testBucket: u32 = compute_bucket(particlesSrc[u32(leaderIndex)].pos, vMass);
     if(vBucket != testBucket) {
         bugFix = 1u;
     }
   }
 
     for(var i = 4; i < 5; i++) {
-         var x_bucket = i32(floor(vPos.x / params.grid_size_side)) + NEIGHBORHOOD[i].x;
-         var y_bucket = i32(floor(vPos.y / params.grid_size_side)) + NEIGHBORHOOD[i].y;
+
+         let grid_size_side: f32 = params.world_size / vMass;
+
+         var x_bucket = i32(floor(vPos.x / grid_size_side)) + NEIGHBORHOOD[i].x;
+         var y_bucket = i32(floor(vPos.y / grid_size_side)) + NEIGHBORHOOD[i].y;
 
         if(x_bucket < 0 || x_bucket >= i32(num_grids_side) || y_bucket < 0 || y_bucket >= i32(num_grids_side)) {
             continue;
@@ -101,7 +101,7 @@ var NEIGHBORHOOD = array(
               continue;
             }
             let accel = calculate_accel(index, u32(nextptr));
-             aAccum = aAccum + params.grid_size_side * accel;
+             aAccum = aAccum + grid_size_side * accel;
              continuing {
                   nextptr = i32(particlesSrc[u32(nextptr)].bptr);
              }
@@ -149,7 +149,7 @@ fn calculate_accel(index: u32, i: u32 ) -> vec2<f32> {
 
      var vKind : u32 =  u32(particlesSrc[index].kind * f32(max_types));
 
-     var vMassTest : f32 = 1.0; //particlesSrc[index].mass;
+     var vMass : f32 = particlesSrc[index].mass;
 
      let pos = particlesSrc[i].pos;
      let mass = 1.0; //particlesSrc[i].mass;
@@ -159,9 +159,11 @@ fn calculate_accel(index: u32, i: u32 ) -> vec2<f32> {
 
      var distance = pow(distance_vector, vec2<f32>(2.0, 2.0));
      var distance_squared: f32 = distance.x + distance.y;
-     var dist = sqrt(distance_squared) / params.grid_size_side;
+     let grid_size_side: f32 = params.world_size / vMass;
 
-     var beta: f32 = 1.0 / params.grid_size_side;
+     var dist = sqrt(distance_squared) / grid_size_side;
+
+     var beta: f32 = 1.0 / grid_size_side;
 
       var mag = 0.0;
 
@@ -175,18 +177,21 @@ fn calculate_accel(index: u32, i: u32 ) -> vec2<f32> {
          return vec2(0.0, 0.0);
      }
 
-     var accel: vec2<f32> = params.well_depth * (distance_vector / sqrt(distance_squared + 0.0000000000001)) * mag / vMassTest;
+     var accel: vec2<f32> = params.well_depth * (distance_vector / sqrt(distance_squared + 0.0000000000001)) * mag ;
 
      return accel;
 
 }
 
-fn compute_bucket(position: vec2<f32>) -> u32 {
 
-     let num_grids_side: u32 = u32(params.world_size / params.grid_size_side);
+ fn compute_bucket(position: vec2<f32>, vMass: f32) -> u32 {
 
-    let x_bucket = u32(floor(position.x / params.grid_size_side));
-    let y_bucket = u32(floor(position.y / params.grid_size_side));
+    let num_grids_side: u32 = u32(vMass); // u32(params.world_size / params.grid_size_side);
+
+    let grid_size_side: f32 = params.world_size / vMass;
+
+    let x_bucket = u32(floor(position.x / grid_size_side));
+    let y_bucket = u32(floor(position.y / grid_size_side));
 
     return y_bucket * num_grids_side + x_bucket;
-}
+ }

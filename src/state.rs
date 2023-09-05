@@ -1,8 +1,8 @@
 //use nanorand::{Rng, WyRand};
 use std::{borrow::Cow, mem};
 
-use eden::{Particle, SAMPLE_COUNT};
-use eframe::Result;
+use eden::Particle;
+
 use wgpu::{util::DeviceExt, TextureView};
 
 #[derive(Debug)]
@@ -66,7 +66,7 @@ impl State {
         let preprocessing_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Preprocessing Shader"),
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!(
-                "shaders/preprocessing.wgsl"
+                "shaders/preprocnew.wgsl"
             ))),
         });
 
@@ -486,6 +486,29 @@ impl State {
             label: None,
         }));
 
+        preprocessing_bind_groups.push(device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &preprocessing_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: sim_param_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: particle_buffers[1].as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: particle_buffers[0].as_entire_binding(), // bind to opposite buffer
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: bucket_indeces_buffer.as_entire_binding(),
+                },
+            ],
+            label: None,
+        }));
+
         particle_bind_groups.push(device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &compute_bind_group_layout,
             entries: &[
@@ -697,25 +720,26 @@ impl State {
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
         if play {
-            //for i in 0..1 {
-            let mut preprocessing_command_encoder =
-                device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("Preprocessing Command Encoder"),
-                });
+            //HAS TO BE ODD
+            for i in 0..2 {
+                let mut preprocessing_command_encoder =
+                    device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                        label: Some("Preprocessing Command Encoder"),
+                    });
 
-            {
-                //preprocessing compute pass
-                let mut ppass = preprocessing_command_encoder.begin_compute_pass(
-                    &wgpu::ComputePassDescriptor {
-                        label: Some("Preprocessing Pass"),
-                    },
-                );
-                ppass.set_pipeline(&self.preprocessing_pipeline);
-                ppass.set_bind_group(0, &self.preprocessing_bind_groups[0], &[]);
-                ppass.dispatch_workgroups(self.work_group_count, 1, 1);
+                {
+                    //preprocessing compute pass
+                    let mut ppass = preprocessing_command_encoder.begin_compute_pass(
+                        &wgpu::ComputePassDescriptor {
+                            label: Some("Preprocessing Pass"),
+                        },
+                    );
+                    ppass.set_pipeline(&self.preprocessing_pipeline);
+                    ppass.set_bind_group(0, &self.preprocessing_bind_groups[i % 2], &[]);
+                    ppass.dispatch_workgroups(self.work_group_count, 1, 1);
+                }
+                queue.submit(Some(preprocessing_command_encoder.finish()));
             }
-            queue.submit(Some(preprocessing_command_encoder.finish()));
-            //}
             // compute pass
             let mut cpass =
                 command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
@@ -761,9 +785,9 @@ impl State {
     }
     fn post_processing(
         &mut self,
-        view: &wgpu::TextureView,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
+        _view: &wgpu::TextureView,
+        _device: &wgpu::Device,
+        _queue: &wgpu::Queue,
     ) {
         //light effect
         //

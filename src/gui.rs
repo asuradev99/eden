@@ -1,4 +1,4 @@
-use egui::{self, ScrollArea, TextEdit};
+use egui::{self};
 
 use std::fs;
 
@@ -18,7 +18,7 @@ pub enum OutputState {
     Step,
 }
 use eden::Params;
-use eden::SAMPLE_COUNT;
+
 use eden::TEXTURE_FORMAT;
 
 pub struct Gui {
@@ -33,7 +33,7 @@ pub struct Gui {
 }
 
 impl Gui {
-    pub fn new(window: &Window, device: &Device, config: &SurfaceConfiguration) -> Self {
+    pub fn new(window: &Window, device: &Device, _config: &SurfaceConfiguration) -> Self {
         let egui_rpass = RenderPass::new(device, TEXTURE_FORMAT, 1);
         let platform = Platform::new(PlatformDescriptor {
             physical_width: window.inner_size().width as u32,
@@ -45,7 +45,7 @@ impl Gui {
         let tdelta = egui::TexturesDelta::default();
         let state = OutputState::None;
         let inner_params = Params::new();
-        let mut frame_rate = 0.0;
+        let frame_rate = 0.0;
 
         let mut shader_options: Vec<String> = Vec::new();
         let selected_shader_file = String::from("experimental.wgsl");
@@ -89,7 +89,7 @@ impl Gui {
                     .spacing([40.0, 4.0])
                     .striped(true)
                     .show(ui, |ui| {
-                        ui.style_mut().spacing.slider_width = (30.0);
+                        ui.style_mut().spacing.slider_width = 30.0;
 
                         ui.label(format!("Frame Rate: {}", self.frame_rate));
                         ui.end_row();

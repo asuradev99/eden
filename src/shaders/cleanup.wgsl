@@ -23,11 +23,11 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
   var vPos : vec2<f32> = particlesSrc[index].pos;
   var vVel : vec2<f32> = particlesSrc[index].vel;
-  var vMass: f32 =  particlesSrc[index].mass;
+  var vMass: f32 = 1.0;
 
- // particlesDst[index] = Particle(vPos, vVel, vMass, particlesSrc[index].kind, -1.0, -1.0);
+  // particlesDst[index] = Particle(vPos, vVel, vMass, particlesSrc[index].kind, -1.0,  -1.0);
 
-   particlesDst[index] = Particle(vPos, vVel, vMass, particlesSrc[index].kind, particlesSrc[index].fptr, particlesSrc[index].bptr);
+    particlesDst[index] = Particle(vPos, vVel, vMass, particlesSrc[index].kind, particlesSrc[index].fptr, particlesSrc[index].bptr);
 
    if(index < arrayLength(&bucket_indeces)) {
        bucket_indeces[index] = -1;
