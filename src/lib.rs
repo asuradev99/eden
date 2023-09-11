@@ -71,7 +71,7 @@ impl Params {
             repulse_coeff: 1.0,
             friction_coeff: 0.9,
             num_grids_side: 50,
-            play: true,
+            play: false,
             particle_radius: 1.0,
         }
     }

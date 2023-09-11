@@ -644,8 +644,13 @@ impl State {
                 accumulator_avg = accumulator_avg / particle_buffer.len() as u32;
                 //accumulator_mass = accumulator_mass / particle_buffer.len() as u32;
                 //println!("{:#?}", particle_buffer);
+                let mut i = 0;
                 for particle in particle_buffer {
-                    println!("{} {} {} ", particle.fptr, particle.bptr, particle.mass);
+                    println!(
+                        "{}: {} {} {} ",
+                        i, particle.fptr, particle.bptr, particle.mass
+                    );
+                    i += 1;
                 }
                 println!("MAXIMUM DISTANCE CHECKED: {}", accumulator);
                 println!("AVERAGE DISTANCE CHAECKED: {}", accumulator_avg);
@@ -721,7 +726,7 @@ impl State {
 
         if play {
             //HAS TO BE ODD
-            for i in 0..2 {
+            for i in 0..3 {
                 let mut preprocessing_command_encoder =
                     device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
                         label: Some("Preprocessing Command Encoder"),

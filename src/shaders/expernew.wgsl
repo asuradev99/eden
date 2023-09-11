@@ -65,15 +65,9 @@ var NEIGHBORHOOD = array(
   var bugFix: u32 = 0u;
 
   let num_grids_side: u32 = u32(vMass);
-  if(leaderIndex > -1.0) {
 
-    var testBucket: u32 = compute_bucket(particlesSrc[u32(leaderIndex)].pos, vMass);
-    if(vBucket != testBucket) {
-        bugFix = 1u;
-    }
-  }
 
-    for(var i = 4; i < 5; i++) {
+    for(var i = 0; i < 9; i++) {
 
          let grid_size_side: f32 = params.world_size / vMass;
 
@@ -95,11 +89,11 @@ var NEIGHBORHOOD = array(
               break;
             }
             if (nextptr == i32(index)) {
-              if(bugFix == 1u) {
-                break;
-              }
               continue;
             }
+            //if( particlesSrc[u32(particlesSrc[u32(nextptr)].bptr)].fptr != particlesSrc[u32(nextptr)].bptr ) {
+            //    break;
+            //}
             let accel = calculate_accel(index, u32(nextptr));
              aAccum = aAccum + grid_size_side * accel;
              continuing {
@@ -140,7 +134,7 @@ var NEIGHBORHOOD = array(
    }
   vVel = nvVel;
   // Write back
-  particlesDst[index] = Particle(vPos, vVel, vMass, particlesSrc[index].kind, particlesSrc[index].fptr, particlesSrc[index].bptr);
+  particlesDst[index] = Particle(vPos, vVel, vMass, particlesSrc[index].kind, -1.0, -1.0);
 }
 
 fn calculate_accel(index: u32, i: u32 ) -> vec2<f32> {

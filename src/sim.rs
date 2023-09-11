@@ -374,6 +374,7 @@ fn start(
                         } else {
                             example.render(&msaaview, Some(&view), &device, &queue, true);
                         }
+                        example.debug(&device, &queue);
                     }
                     gui::OutputState::None => {
                         if SAMPLE_COUNT == 1 {
