@@ -375,6 +375,9 @@ fn start(
                     gui::OutputState::TogglePlay => {
                         example.params.play = !(example.params.play);
                     },
+                    gui::OutputState::Debug => {
+
+                    },
                     gui::OutputState::None => (),
                }
                 if(test_ui.state == gui::OutputState::ReloadRequired) {
