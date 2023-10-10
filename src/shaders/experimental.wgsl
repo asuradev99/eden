@@ -7,7 +7,8 @@ struct Particle {
   mass: f32,
   kind: f32,
   fptr: f32,
-  bptr: f32
+  bptr: f32,
+  debug: f32,
 };
 
 struct SimParams {
@@ -140,7 +141,7 @@ var NEIGHBORHOOD = array(
    }
   vVel = nvVel;
   // Write back
-  particlesDst[index] = Particle(vPos, vVel, vMass, particlesSrc[index].kind, particlesSrc[index].fptr, particlesSrc[index].bptr);
+  particlesDst[index] = Particle(vPos, vVel, vMass, particlesSrc[index].kind, particlesSrc[index].fptr, particlesSrc[index].bptr, particlesSrc[index].debug);
 }
 
 fn calculate_accel(index: u32, i: u32 ) -> vec2<f32> {

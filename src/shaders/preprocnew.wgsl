@@ -5,6 +5,7 @@ struct Particle {
   kind: f32,
   fptr: f32,
   bptr: f32,
+  debug: f32,
 };
 
 struct SimParams {

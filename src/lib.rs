@@ -13,7 +13,7 @@ pub struct Camera {
 pub const SAMPLE_COUNT: u32 = 4;
 pub const TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb; // wgpu::TextureFormat::Rgba8UnormSrgb;
 pub const CIRCLE_RES: u32 = 16;
-pub const DEFAULT_COMPUTE_SHADER: &str = include_str!("shaders/expernew.wgsl");
+pub const DEFAULT_COMPUTE_SHADER: &str = include_str!("shaders/experimental.wgsl");
 
 impl Camera {
     pub fn new(x: f32, y: f32, zoom: f32, aspect_ratio: f32) -> Self {
@@ -105,14 +105,6 @@ impl Params {
     }
 }
 
-// const PARAMS: [f32; 2] = [
-//     0.001, //dt
-//     0.01//Gravitational constant
-// ];
-
-/// Example struct holds references to wgpu resources and frame persistent data
-///
-///
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct Particle {
@@ -122,13 +114,14 @@ pub struct Particle {
     kind: f32,
     pub fptr: f32,
     pub bptr: f32,
+    pub debug: f32,
 }
 
 impl Particle {
-    pub fn to_slice(&self) -> [f32; 8] {
+    pub fn to_slice(&self) -> [f32; 9] {
         [
             self.pos.0, self.pos.1, self.vel.0, self.vel.1, self.mass, self.kind, self.fptr,
-            self.bptr,
+            self.bptr, self.debug,
         ]
     }
     pub fn new_random(params: &Params) -> Self {
@@ -144,6 +137,7 @@ impl Particle {
             kind: (rng.gen_range(0..max_types as u32) as f32) / (max_types as f32),
             bptr: -1.0,
             fptr: -1.0,
+            debug: -1.0
         }
     }
     pub fn new() -> Self {
@@ -154,6 +148,7 @@ impl Particle {
             kind: 0.01,
             fptr: -1.0,
             bptr: -1.0,
+            debug: 0.0
         }
     }
 }
@@ -161,6 +156,7 @@ impl Particle {
 pub fn generate_circle(radius: f32) -> [f32; (CIRCLE_RES * 8) as usize] {
     use std::convert::TryInto;
     use std::f64::consts::PI;
+
     let mut coords = Vec::<f32>::new();
 
     for i in 0..(CIRCLE_RES) {
