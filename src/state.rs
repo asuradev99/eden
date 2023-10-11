@@ -4,6 +4,9 @@ use std::{borrow::Cow, mem};
 use eden::SAMPLE_COUNT;
 use wgpu::{util::DeviceExt, TextureView};
 
+use crate::sim::{Params, Particle};
+use crate::render::Camera;
+
 #[derive(Debug)]
 pub struct State {
     particle_bind_groups: Vec<wgpu::BindGroup>,
@@ -14,9 +17,9 @@ pub struct State {
     render_pipeline: wgpu::RenderPipeline,
     work_group_count: u32,
     frame_num: usize,
-    pub camera: eden::Camera,
+    pub camera: Camera,
     pub camera_uniform_buffer: wgpu::Buffer,
-    pub params: eden::Params,
+    pub params: Params,
     camera_bind_group: wgpu::BindGroup,
     // post-processing stuff
    // tex_view: Option<wgpu::TextureView>,
@@ -42,7 +45,7 @@ impl State {
     }
 
     pub fn init(
-        params: eden::Params,
+        params: Params,
         config: &wgpu::SurfaceConfiguration,
         _adapter: &wgpu::Adapter,
         device: &wgpu::Device,
@@ -83,7 +86,7 @@ impl State {
         //set up camera buffer
        // let camera = Camera::new(1.0 / (params.world_size * 1.5));
        let aspect_ratio:f32 = config.width as f32 / config.height as f32;
-       let camera = eden::Camera::new(1.0 / params.world_size, aspect_ratio);
+       let camera = Camera::new(1.0 / params.world_size, aspect_ratio);
         let camera_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Buffer"),
             contents: bytemuck::cast_slice(&(camera.to_slice())),
@@ -243,7 +246,7 @@ impl State {
         let mut initial_particle_data: Vec<f32>  = Vec::new();
 
         for _ in 0..params.num_particles {
-            initial_particle_data.extend_from_slice(&eden::Particle::new_random(&params).to_slice())
+            initial_particle_data.extend_from_slice(&Particle::new_random(&params).to_slice())
         }
 
         // creates two buffers of particle data each of size NUM_PARTICLES
@@ -349,9 +352,7 @@ impl State {
             view,
             resolve_target: resolve_view,
             ops: wgpu::Operations {
-                // Not clearing here in order to test wgpu's zero texture initialization on a surface texture.
-                // Users should avoid loading uninitialized memory since this can cause additional overhead.
-                load: wgpu::LoadOp::Load,
+                load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                 store: true,
             },
         })];

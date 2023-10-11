@@ -16,6 +16,8 @@ use winit::{
 use super::gui;
 use super::state;
 
+use crate::sim::params::Params;
+
 struct Setup {
     window: winit::window::Window,
     event_loop: EventLoop<()>,
@@ -87,26 +89,26 @@ async fn setup() -> Setup {
     let optional_features = wgpu::Features::empty();
     let required_features = wgpu::Features::empty();
     let adapter_features = adapter.features();
-    // assert!(
-    //     adapter_features.contains(required_features),
-    //     "Adapter does not support required features for this example: {:?}",
-    //     required_features - adapter_features
-    // );
+    assert!(
+        adapter_features.contains(required_features),
+        "Adapter does not support required features for this example: {:?}",
+        required_features - adapter_features
+    );
 
-    // let required_downlevel_capabilities = E::required_downlevel_capabilities();
-    // let downlevel_capabilities = adapter.get_downlevel_capabilities();
-    // assert!(
-    //     downlevel_capabilities.shader_model >= required_downlevel_capabilities.shader_model,
-    //     "Adapter does not support the minimum shader model required to run this example: {:?}",
-    //     required_downlevel_capabilities.shader_model
-    // );
-    // assert!(
-    //     downlevel_capabilities
-    //         .flags
-    //         .contains(required_downlevel_capabilities.flags),
-    //     "Adapter does not support the downlevel capabilities required to run this example: {:?}",
-    //     required_downlevel_capabilities.flags - downlevel_capabilities.flags
-    // );
+    let required_downlevel_capabilities = state::State::required_downlevel_capabilities();
+    let downlevel_capabilities = adapter.get_downlevel_capabilities();
+    assert!(
+        downlevel_capabilities.shader_model >= required_downlevel_capabilities.shader_model,
+        "Adapter does not support the minimum shader model required to run this example: {:?}",
+        required_downlevel_capabilities.shader_model
+    );
+    assert!(
+        downlevel_capabilities
+            .flags
+            .contains(required_downlevel_capabilities.flags),
+        "Adapter does not support the downlevel capabilities required to run this example: {:?}",
+        required_downlevel_capabilities.flags - downlevel_capabilities.flags
+    );
 
     // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the surface.
     let needed_limits = state::State::required_limits().using_resolution(adapter.limits());
@@ -167,7 +169,7 @@ fn start(
     let mut test_ui = gui::Gui::new(&window, &device, &config);
     log::info!("Initializing the example...");
 
-    let params: eden::Params = eden::Params::new();
+    let params: Params = Params::new();
 
     let mut example = state::State::init(params, &config, &adapter, &device, &queue);
 

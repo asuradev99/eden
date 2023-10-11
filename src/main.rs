@@ -1,7 +1,11 @@
 
 mod gui;
 mod state;
-mod sim;
+mod renderer;
+mod sim; 
+mod render; 
+
+
 fn main () {
-    sim::run("particles");
+    renderer::run("particles");
 }
