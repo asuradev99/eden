@@ -1,4 +1,4 @@
-use egui::{self, ScrollArea, TextEdit};
+use egui::{self};
 
 use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
@@ -39,7 +39,7 @@ impl Gui {
         let tdelta = egui::TexturesDelta::default();
         let state = OutputState::None;
         let inner_params = Params::new();
-        let mut frame_rate = 0.0;
+        let frame_rate = 0.0;
 
         Self {
             platform,

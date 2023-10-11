@@ -399,7 +399,7 @@ impl State {
         // done
         queue.submit(Some(command_encoder.finish()));
     }
-    fn post_processing(&mut self, view: &wgpu::TextureView, device: &wgpu::Device, queue: &wgpu::Queue ) {
+    fn post_processing(&mut self, _view: &wgpu::TextureView, _device: &wgpu::Device, _queue: &wgpu::Queue ) {
         //light effect
         //
         // let render_pass_descriptor = wgpu::RenderPassDescriptor {

@@ -1,4 +1,4 @@
-use eframe::epaint::CircleShape;
+
 
 use rand::prelude::*;
 
@@ -56,7 +56,7 @@ impl Params {
         let mut rng = rand::thread_rng();
         let mut unif = || (rng.gen::<f32>() * 2f32 - 1f32);
         let num_types: u32 = 2;
-        for i in 0..num_types.pow(2) {
+        for _i in 0..num_types.pow(2) {
             attraction_matrix.extend_from_slice(&[unif(), 0.0, 0.0, 0.0]);
         }
 
@@ -81,7 +81,7 @@ impl Params {
         let mut rng = rand::thread_rng();
         let mut unif = || (rng.gen::<f32>() * 2f32 - 1f32);
 
-        for i in 0..self.num_types.pow(2) {
+        for _i in 0..self.num_types.pow(2) {
             attraction_matrix.extend_from_slice(&[unif(), 0.0, 0.0, 0.0]);
         }
 
@@ -160,7 +160,7 @@ pub fn generate_circle(radius: f32) -> [f32; (CIRCLE_RES * 8)  as usize ] {
 
     }
 
-     for i in 0..CIRCLE_RES{
+     for _i in 0..CIRCLE_RES{
          coords.push(0.01);
          coords.push(0.0)
      }

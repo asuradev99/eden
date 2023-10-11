@@ -245,7 +245,7 @@ fn start(
                         _ => {}
                     }
                 }
-                WindowEvent::MouseInput { device_id: _ , state,  button, modifiers } => {
+                WindowEvent::MouseInput { device_id: _ , state,  button, modifiers: _ } => {
                     match button {
                         MouseButton::Right => {
                             match state {
@@ -263,7 +263,7 @@ fn start(
                     }
 
                 }
-                WindowEvent::CursorMoved { device_id: _, position, modifiers } => {
+                WindowEvent::CursorMoved { device_id: _, position, modifiers: _ } => {
                     if mouse_state {
                         if last_mouse_position.x != -1.0 {
                             let delta_position = PhysicalPosition::<f64>{
