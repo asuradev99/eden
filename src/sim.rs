@@ -13,20 +13,6 @@ use winit::{
 };
 
 
-#[allow(dead_code)]
-pub fn cast_slice<T>(data: &[T]) -> &[u8] {
-    use std::{mem::size_of, slice::from_raw_parts};
-
-    unsafe { from_raw_parts(data.as_ptr() as *const u8, data.len() * size_of::<T>()) }
-}
-
-#[allow(dead_code)]
-pub enum ShaderStage {
-    Vertex,
-    Fragment,
-    Compute,
-}
-
 use super::gui;
 use super::state;
 
@@ -41,7 +27,7 @@ struct Setup {
     queue: wgpu::Queue,
 }
 
-async fn setup(title: &str) -> Setup {
+async fn setup() -> Setup {
     #[cfg(not(target_arch = "wasm32"))]
     {
         env_logger::init();
@@ -187,12 +173,11 @@ fn start(
 
     let mut last_frame_inst = Instant::now();
     let (mut frame_count, mut accum_time) = (0, 0.0);
-    let mut frame_rate: f32 = 0.0;
 
     log::info!("Entering render loop...");
 
-    let mut mouseState: bool = false;
-    let mut lastMousePosition: PhysicalPosition<f64> = PhysicalPosition { x: -1.0, y: -1.0 };
+    let mut mouse_state: bool = false;
+    let mut last_mouse_position: PhysicalPosition<f64> = PhysicalPosition { x: -1.0, y: -1.0 };
 
     //antialiasing
     //let mut smaa_target = SmaaTarget::new(&device, &queue, size.width.max(1), size.height.max(1), config.format, smaa::SmaaMode::Smaa1X);
@@ -252,7 +237,7 @@ fn start(
 
                 WindowEvent::MouseWheel { delta, .. } => {
                     match delta {
-                        event::MouseScrollDelta::LineDelta(x, y) => {
+                        event::MouseScrollDelta::LineDelta(_x, y) => {
                             example.camera.zoom *= f32::powf(1.25, y);
                             //println!("New camera zoom: {:?}", example.camera.zoom);
                             queue.write_buffer(&(example.camera_uniform_buffer), 0, bytemuck::cast_slice(&[example.camera.to_slice()]));
@@ -260,14 +245,14 @@ fn start(
                         _ => {}
                     }
                 }
-                WindowEvent::MouseInput { device_id, state,  button, modifiers } => {
+                WindowEvent::MouseInput { device_id: _ , state,  button, modifiers } => {
                     match button {
                         MouseButton::Right => {
                             match state {
-                                ElementState::Pressed => {mouseState = true;
+                                ElementState::Pressed => {mouse_state = true;
                                 }
-                                ElementState::Released => {mouseState = false;
-                                    lastMousePosition = PhysicalPosition::<f64>{x: -1.0, y: 0.0};
+                                ElementState::Released => {mouse_state = false;
+                                    last_mouse_position = PhysicalPosition::<f64>{x: -1.0, y: 0.0};
                                                 }
                             }
                         },
@@ -278,23 +263,23 @@ fn start(
                     }
 
                 }
-                WindowEvent::CursorMoved { device_id, position, modifiers } => {
-                    if(mouseState) {
-                        if(lastMousePosition.x != -1.0) {
-                            let deltaPosition = PhysicalPosition::<f64>{
-                                x: (position.x - lastMousePosition.x) / (config.width as f64),
-                                y: (position.y - lastMousePosition.y) / (config.height as f64),
+                WindowEvent::CursorMoved { device_id: _, position, modifiers } => {
+                    if mouse_state {
+                        if last_mouse_position.x != -1.0 {
+                            let delta_position = PhysicalPosition::<f64>{
+                                x: (position.x - last_mouse_position.x) / (config.width as f64),
+                                y: (position.y - last_mouse_position.y) / (config.height as f64),
                             };
 
-                            example.camera.x -= (deltaPosition.x as f32 / example.camera.zoom ) * 2.0;
-                            example.camera.y += (deltaPosition.y as f32 / example.camera.zoom) * 2.0;
+                            example.camera.x -= (delta_position.x as f32 / example.camera.zoom ) * 2.0;
+                            example.camera.y += (delta_position.y as f32 / example.camera.zoom) * 2.0;
 
                             queue.write_buffer(&(example.camera_uniform_buffer), 0, bytemuck::cast_slice(&[example.camera.to_slice()]));
 
-                            lastMousePosition = position;
+                            last_mouse_position = position;
 
                         } else {
-                            lastMousePosition = position;
+                            last_mouse_position = position;
                         }
                     }
 
@@ -354,7 +339,7 @@ fn start(
                       //render ui
 
                 let msaaview = depthframe.create_view(&wgpu::TextureViewDescriptor::default());
-               if(SAMPLE_COUNT == 1) {
+               if SAMPLE_COUNT == 1 {
 
                 example.render(&view, None, &device, &queue);
                } else {
@@ -380,7 +365,7 @@ fn start(
                     },
                     gui::OutputState::None => (),
                }
-                if(test_ui.state == gui::OutputState::ReloadRequired) {
+                if test_ui.state == gui::OutputState::ReloadRequired {
                 }
                 #[cfg(target_arch = "wasm32")]
                 {
@@ -444,8 +429,8 @@ impl Spawner {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn run(title: &str) {
-    let setup = pollster::block_on(setup(title));
+pub fn run(_title: &str) {
+    let setup = pollster::block_on(setup());
     start(setup);
 }
 
@@ -499,7 +484,3 @@ pub fn parse_url_query_string<'a>(query: &'a str, search_key: &str) -> Option<&'
 }
 
 
-// This allows treating the framework as a standalone example,
-// thus avoiding listing the example names in `Cargo.toml`.
-//#[allow(dead_code)]
-// fn main() {}
