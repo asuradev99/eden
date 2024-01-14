@@ -26,7 +26,7 @@ impl Particle {
             pos: (unif(), unif()),
             vel: (0.0, 0.0),
             mass: 1.0,
-            kind: (rng.gen_range(0..max_types as u32) as f32) / (max_types as f32) ,
+            kind: (rng.gen_range(0..max_types as u32) as f32) ,
         }
     }
     pub fn new() -> Self {

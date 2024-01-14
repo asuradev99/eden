@@ -21,8 +21,6 @@ pub struct State {
     pub camera_uniform_buffer: wgpu::Buffer,
     pub params: Params,
     camera_bind_group: wgpu::BindGroup,
-    // post-processing stuff
-   // tex_view: Option<wgpu::TextureView>,
 
 }
 
@@ -56,6 +54,7 @@ impl State {
         let params = params;
         let params_slice = params.to_slice();
         let params_attraction_matrix = params.attraction_matrix_slice();
+        let type_colors_slice = params.type_colors.as_slice();
 
         //initialize compute shader module
         let compute_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -80,6 +79,13 @@ impl State {
         let attraction_matrix_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Parameter Buffer"),
             contents: bytemuck::cast_slice(params_attraction_matrix),
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+        });
+
+        //set up uniform buffer to hold particle color values
+        let type_color_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Type Color Buffer"),
+            contents: bytemuck::cast_slice(type_colors_slice),
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
         });
 
@@ -151,6 +157,7 @@ impl State {
                 ],
                 label: None,
             });
+
         //compute pipeline layout =
         let compute_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -159,6 +166,7 @@ impl State {
                 push_constant_ranges: &[],
             });
 
+        
         //camera bind group layout
         let camera_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -171,6 +179,16 @@ impl State {
                         min_binding_size: None,
                     },
                     count: None,
+                }, 
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1, 
+                    visibility: wgpu::ShaderStages::FRAGMENT, 
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage {read_only: true}, 
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
                 }],
                 label: Some("camera_bind_group_layout"),
             });
@@ -179,7 +197,7 @@ impl State {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("render"),
-                bind_group_layouts: &[&camera_bind_group_layout],
+                bind_group_layouts: &[&camera_bind_group_layout ],
                 push_constant_ranges: &[],
             });
 
@@ -272,10 +290,14 @@ impl State {
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: camera_uniform_buffer.as_entire_binding(),
+            }, 
+            wgpu::BindGroupEntry {
+                binding: 1, 
+                resource: type_color_buffer.as_entire_binding(),
             }],
             label: Some("camera_bind_group"),
         });
-
+        
         // create two bind groups, one for each buffer as the src
         // where the alternate buffer is used as the dst
 
@@ -375,10 +397,9 @@ impl State {
                 cpass.dispatch_workgroups(self.work_group_count, 1, 1);
 
             } else {
-                      self.frame_num -= 1;
+                 self.frame_num -= 1;
 
         }
-
 
         //render pass
         {

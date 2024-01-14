@@ -38,9 +38,6 @@ async fn setup() -> Setup {
     //create main event loop for winit()
     let event_loop = EventLoop::new();
 
-   // let monitor = event_loop.primary_monitor().unwrap();
-   // let video_mode = monitor.video_modes().next();
-   // let size = video_mode.clone().map_or(winit::dpi::PhysicalSize::new(800, 600), |vm| vm.size());
     let builder = winit::window::WindowBuilder::new()
         .with_visible(true)
         .with_title("The universe, with a heck of a lot of rounding errors")
@@ -50,11 +47,7 @@ async fn setup() -> Setup {
             height: 1080
         });
 
-    #[cfg(windows_OFF)] // TODO
-    {
-        use winit::platform::windows::WindowBuilderExtWindows;
-        builder = builder.with_no_redirection_bitmap(true);
-    }
+
     let window = builder.build(&event_loop).unwrap();
 
 
@@ -163,8 +156,6 @@ fn start(
             view_formats: vec![TEXTURE_FORMAT],
     };
     surface.configure(&device, &config);
-
-
 
     let mut test_ui = gui::Gui::new(&window, &device, &config);
     log::info!("Initializing the example...");
@@ -298,11 +289,6 @@ fn start(
                     frame_count += 1;
                     if frame_count == 100 {
                         test_ui.frame_rate = accum_time * 1000.0 / frame_count as f32;
-
-                        // println!(
-                        //     "Avg frame time {}ms",
-                        //     accum_time * 1000.0 / frame_count as f32
-                        // );
                         accum_time = 0.0;
                         frame_count = 0;
                     }

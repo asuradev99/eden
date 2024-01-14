@@ -16,6 +16,7 @@ pub struct Params {
     pub repulse_coeff: f32,
     pub friction_coeff: f32,
     pub num_types: u32,
+    pub type_colors: Vec<f32>,
     pub play: bool,
 
 }
@@ -25,9 +26,15 @@ impl Params {
     pub fn new() -> Self {
 
         let mut attraction_matrix: Vec<f32> = Vec::new();
+        let num_types: u32 = 2;
+        let mut type_colors: Vec<f32> = Vec::new();
+        let mut rng = rand::thread_rng();
+        let mut unif = || (rng.gen::<f32>());
+        for _i in 0..(num_types * 3) {
+            type_colors.extend_from_slice(&[unif(), 0.0, 0.0, 0.0]);
+        } 
         let mut rng = rand::thread_rng();
         let mut unif = || (rng.gen::<f32>() * 2f32 - 1f32);
-        let num_types: u32 = 2;
         for _i in 0..num_types.pow(2) {
             attraction_matrix.extend_from_slice(&[unif(), 0.0, 0.0, 0.0]);
         }
@@ -35,6 +42,7 @@ impl Params {
         println!("{:?}", attraction_matrix);
         Params {
             num_types: num_types,
+            type_colors: type_colors,
             attraction_matrix: attraction_matrix,
             dt: 0.001,
             num_particles: 20000,

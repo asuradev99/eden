@@ -4,6 +4,7 @@ use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
 
 use winit::window::Window;
+use std::convert::TryInto;
 
 use wgpu::{Device, SurfaceConfiguration, TextureView};
 #[derive(PartialEq)]
@@ -84,7 +85,16 @@ impl Gui {
                             .sqrt() as usize;
                         for i in 0..max_types {
                             ui.label(format!("Particle Type {} Forces: ", i));
+                            //println!("{:?}", self.inner_params.type_colors);
                             ui.horizontal(|ui| {
+                                let indexes = [12*i,  12*i + 4, 12*i + 8];
+                                let spec_color: &mut [f32; 3] = &mut (indexes
+                                    .iter()
+                                    .map(|x| self.inner_params.type_colors[*x])
+                                    .collect::<Vec<f32>>()
+                                    .try_into()
+                                    .unwrap());
+                                egui::color_picker::color_edit_button_rgb(ui, spec_color);
                                 for j in 0..max_types {
                                     ui.add(egui::DragValue::new(
                                         &mut self.inner_params.attraction_matrix

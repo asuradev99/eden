@@ -5,12 +5,19 @@ struct Camera {
     zoom : f32, 
     aspect_ratio : f32,
 }
+struct TypeColorsEntry {
+  elem: f32,
+  _pad1: f32,
+  _pad2: f32,
+  _pad3: f32,
+}
 
 // struct Output {
 //     @builtin(position) clip_position: vec4<f32>,
 //     vel 
 // }
 @group(0) @binding(0) var<uniform> camera : Camera;
+@group(0) @binding(1) var<storage, read> type_colors : array<TypeColorsEntry>;
 
 @vertex
 fn main_vs(
@@ -35,5 +42,7 @@ fn main_vs(
 
 @fragment
 fn main_fs(@builtin(position) clip_position: vec4<f32>) -> @location(0) vec4<f32> {
-    return vec4<f32>(1.0 - clip_position.z, clip_position.z, clip_position.z, 0.1);
+    var index = u32(clip_position.z);
+    
+    return vec4<f32>(type_colors[index*3u].elem, type_colors[3u*index+1u].elem, type_colors[3u*index+2u].elem, 0.1);
 }
