@@ -12,10 +12,6 @@ struct TypeColorsEntry {
   _pad3: f32,
 }
 
-// struct Output {
-//     @builtin(position) clip_position: vec4<f32>,
-//     vel 
-// }
 @group(0) @binding(0) var<uniform> camera : Camera;
 @group(0) @binding(1) var<storage, read> type_colors : array<TypeColorsEntry>;
 
@@ -26,8 +22,9 @@ fn main_vs(
     @location(2) mass: f32,
     @location(3) kind: f32,
     @location(4) circle_coord: vec2<f32>,
-    //@location(2) mass: f32,
 ) -> @builtin(position) vec4<f32> {
+    let max_types = arrayLength(&type_colors) / 3u;
+
     let camera_pos_vec = vec2<f32>(camera.x, camera.y);
     var new_pos: vec2<f32> = vec2<f32>(particle_pos.x + (circle_coord.x * sqrt(mass)), particle_pos.y + (circle_coord.y * sqrt(mass)));
 
@@ -37,12 +34,15 @@ fn main_vs(
         new_pos = vec2<f32>(new_pos.x, new_pos.y / camera.aspect_ratio);
 
     }
-    return vec4<f32>((new_pos - camera_pos_vec) * camera.zoom, kind, 1.0);
+    return vec4<f32>((new_pos - camera_pos_vec) * camera.zoom, kind / f32(max_types), 1.0);
 }
 
 @fragment
 fn main_fs(@builtin(position) clip_position: vec4<f32>) -> @location(0) vec4<f32> {
-    var index = u32(clip_position.z);
     
-    return vec4<f32>(type_colors[index*3u].elem, type_colors[3u*index+1u].elem, type_colors[3u*index+2u].elem, 0.1);
+    let max_types = f32(arrayLength(&type_colors) / 3u);
+    let index = u32(clip_position.z * max_types);
+
+    return vec4<f32>(type_colors[index*3u].elem, type_colors[(3u*index)+1u].elem, type_colors[(3u*index)+2u].elem, 0.1);
+    //return vec4<f32>(0.0, 1.0, 1.0, 1.0);
 }

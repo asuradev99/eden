@@ -26,7 +26,7 @@ impl Params {
     pub fn new() -> Self {
 
         let mut attraction_matrix: Vec<f32> = Vec::new();
-        let num_types: u32 = 2;
+        let num_types: u32 = 3;
         let mut type_colors: Vec<f32> = Vec::new();
         let mut rng = rand::thread_rng();
         let mut unif = || (rng.gen::<f32>());
@@ -39,15 +39,14 @@ impl Params {
             attraction_matrix.extend_from_slice(&[unif(), 0.0, 0.0, 0.0]);
         }
 
-        println!("{:?}", attraction_matrix);
         Params {
             num_types: num_types,
             type_colors: type_colors,
             attraction_matrix: attraction_matrix,
             dt: 0.001,
-            num_particles: 20000,
+            num_particles: 10,
             shader_buffer: DEFAULT_COMPUTE_SHADER.to_string(),
-            world_size: 100.0,
+            world_size: 10.0,
             well_depth: 50000.0,
             attract_coeff: 1.0,
             repulse_coeff: 1.0,
@@ -58,7 +57,15 @@ impl Params {
 
     pub fn randomize_matrix(&mut self) {
         let mut attraction_matrix: Vec<f32> = Vec::new();
+        let mut type_colors: Vec<f32> = Vec::new();
         let mut rng = rand::thread_rng();
+
+        let mut unif = || (rng.gen::<f32>());
+        for _i in 0..(self.num_types * 3) {
+            type_colors.extend_from_slice(&[unif(), 0.0, 0.0, 0.0]);
+        } 
+
+
         let mut unif = || (rng.gen::<f32>() * 2f32 - 1f32);
 
         for _i in 0..self.num_types.pow(2) {
@@ -66,6 +73,7 @@ impl Params {
         }
 
         self.attraction_matrix = attraction_matrix;
+        self.type_colors = type_colors;
     }
 
     pub fn to_slice(&self) -> [f32; 5] {

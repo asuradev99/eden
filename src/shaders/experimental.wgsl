@@ -26,7 +26,6 @@ struct AttractionMatrixEntry {
 @group(0) @binding(2) var<storage, read_write> particlesDst : array<Particle>;
 @group(0) @binding(3) var<storage, read> attraction_matrix : array<AttractionMatrixEntry>;
 
-// https://github.com/austinEng/Project6-Vulkan-Flocking/blob/master/data/shaders/computeparticles/particle.comp
 @compute
 @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
@@ -40,7 +39,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
   var vPos : vec2<f32> = particlesSrc[index].pos;
   var vVel : vec2<f32> = particlesSrc[index].vel;
   var vMass : f32 = particlesSrc[index].mass;
-  var vKind : u32 =  u32(particlesSrc[index].kind * f32(max_types));
+  var vKind : u32 =  u32(particlesSrc[index].kind);
 
   var aAccum : vec2<f32> = vec2<f32>(0.0, 0.0);
   var cAccum : vec2<f32> = vec2<f32>(0.0, 0.0);
@@ -58,7 +57,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
      let pos = particlesSrc[i].pos;
      let mass = particlesSrc[i].mass;
      let vel = particlesSrc[i].vel;
-     let kind = u32(particlesSrc[i].kind * f32(max_types));
+     let kind = u32(particlesSrc[i].kind);
      let distance_vector: vec2<f32> = pos - vPos;
 
 //     let vel = particlesSrc[i].vel;
@@ -84,7 +83,6 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         mag = -1.0 * params.attract_coeff * params.well_depth * attraction_matrix[mat_index].elem * term_1 * (term_1 * z - 0.5); /// (distance_squared + 0.0000000000001);
     }
      var accel: vec2<f32> = (distance_vector / sqrt(distance_squared + 0.0000000000001)) * mag / vMass;
-    // var accel: vec2<f32> = mat2x2<f32>(0.5, -0.5, 0.5, 0.5) * accelm;
      aAccum = aAccum + accel;
 
      continuing {
@@ -93,9 +91,6 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
   }
 
   let nvVel = (vVel + (aAccum * params.dt)) * params.friction_coeff;
-  // if(collided != 1u) {
-  //     vVel = 0.98 * vVel;
-  // }
 
   vPos = vPos + cAccum;
   vPos = vPos + (vVel + nvVel) / 2.0 * params.dt;

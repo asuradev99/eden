@@ -1,5 +1,5 @@
 
-pub const DEFAULT_COMPUTE_SHADER: &str = include_str!("../shaders/experimental.wgsl");
+pub const DEFAULT_COMPUTE_SHADER: &str = include_str!("../shaders/experimental.wgsl");//include_str!("../shaders/experimental.wgsl");
 
 pub mod params; 
 pub use params::Params;

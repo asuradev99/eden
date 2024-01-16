@@ -56,6 +56,8 @@ impl State {
         let params_attraction_matrix = params.attraction_matrix_slice();
         let type_colors_slice = params.type_colors.as_slice();
 
+        println!("{:?}", params.type_colors);
+
         //initialize compute shader module
         let compute_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
@@ -182,7 +184,7 @@ impl State {
                 }, 
                 wgpu::BindGroupLayoutEntry {
                     binding: 1, 
-                    visibility: wgpu::ShaderStages::FRAGMENT, 
+                    visibility: wgpu::ShaderStages::FRAGMENT | wgpu::ShaderStages::VERTEX, 
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Storage {read_only: true}, 
                         has_dynamic_offset: false,
@@ -266,6 +268,8 @@ impl State {
         for _ in 0..params.num_particles {
             initial_particle_data.extend_from_slice(&Particle::new_random(&params).to_slice())
         }
+
+        println!("{:#?}", initial_particle_data);
 
         // creates two buffers of particle data each of size NUM_PARTICLES
         // the two buffers alternate as dst and src for each frame

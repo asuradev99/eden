@@ -37,6 +37,5 @@ pub fn generate_circle(radius: f32) -> [f32; (CIRCLE_RES * 8)  as usize ] {
          coords.push(0.0)
      }
 
-    println!("Coords: {:?}", coords);
     coords.try_into().unwrap_or_else(|v: Vec<f32>| panic!("Expected a Vec of length {} but it was {}", CIRCLE_RES, v.len()))
 }

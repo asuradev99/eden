@@ -19,14 +19,14 @@ impl Particle {
     pub fn new_random(params: &Params) -> Self {
         let mut rng = rand::thread_rng();
         let mut unif = || (rng.gen::<f32>() * 2f32 - 1f32) * params.world_size;
-        let max_types: f32 = f32::sqrt(params.attraction_matrix.len() as f32 / 4.0);
+        let max_types: u32 = params.num_types;
         let mut rng = rand::thread_rng();
 
         Self {
             pos: (unif(), unif()),
             vel: (0.0, 0.0),
             mass: 1.0,
-            kind: (rng.gen_range(0..max_types as u32) as f32) ,
+            kind: (rng.gen_range(0..max_types) as f32),
         }
     }
     pub fn new() -> Self {
