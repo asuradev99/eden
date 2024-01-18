@@ -26,7 +26,7 @@ pub struct Gui {
 }
 
 impl Gui {
-    pub fn new(window: &Window, device: &Device, config: &SurfaceConfiguration) -> Self {
+    pub fn new(window: &Window, device: &Device, config: &SurfaceConfiguration, params: &Params) -> Self {
         let egui_rpass = RenderPass::new(&device, config.format, 1);
         let platform = Platform::new(PlatformDescriptor {
             physical_width: window.inner_size().width as u32,
@@ -37,7 +37,7 @@ impl Gui {
         });
         let tdelta = egui::TexturesDelta::default();
         let state = OutputState::None;
-        let inner_params = Params::new();
+        let inner_params = params.clone();
         let frame_rate = 0.0;
 
         Self {

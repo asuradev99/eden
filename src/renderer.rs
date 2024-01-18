@@ -156,11 +156,11 @@ fn start(
             view_formats: vec![TEXTURE_FORMAT],
     };
     surface.configure(&device, &config);
-
-    let mut test_ui = gui::Gui::new(&window, &device, &config);
     log::info!("Initializing the example...");
 
     let params: Params = Params::new();
+
+    let mut test_ui = gui::Gui::new(&window, &device, &config, &params);
 
     let mut example = state::State::init(params, &config, &adapter, &device, &queue);
 

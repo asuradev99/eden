@@ -1,7 +1,9 @@
-
 use rand::prelude::*;
 
 use crate::sim::DEFAULT_COMPUTE_SHADER;
+
+use std::mem;
+use wgpu;
 
 #[derive(Clone, Debug)]
 
@@ -18,13 +20,10 @@ pub struct Params {
     pub num_types: u32,
     pub type_colors: Vec<f32>,
     pub play: bool,
-
 }
-
 
 impl Params {
     pub fn new() -> Self {
-
         let mut attraction_matrix: Vec<f32> = Vec::new();
         let num_types: u32 = 3;
         let mut type_colors: Vec<f32> = Vec::new();
@@ -32,7 +31,7 @@ impl Params {
         let mut unif = || (rng.gen::<f32>());
         for _i in 0..(num_types * 3) {
             type_colors.extend_from_slice(&[unif(), 0.0, 0.0, 0.0]);
-        } 
+        }
         let mut rng = rand::thread_rng();
         let mut unif = || (rng.gen::<f32>() * 2f32 - 1f32);
         for _i in 0..num_types.pow(2) {
@@ -63,8 +62,7 @@ impl Params {
         let mut unif = || (rng.gen::<f32>());
         for _i in 0..(self.num_types * 3) {
             type_colors.extend_from_slice(&[unif(), 0.0, 0.0, 0.0]);
-        } 
-
+        }
 
         let mut unif = || (rng.gen::<f32>() * 2f32 - 1f32);
 
@@ -77,11 +75,51 @@ impl Params {
     }
 
     pub fn to_slice(&self) -> [f32; 5] {
-        [self.dt, self.well_depth, self.attract_coeff, self.repulse_coeff, self.friction_coeff]
+        [
+            self.dt,
+            self.well_depth,
+            self.attract_coeff,
+            self.repulse_coeff,
+            self.friction_coeff,
+        ]
     }
 
     pub fn attraction_matrix_slice(&self) -> &[f32] {
         self.attraction_matrix.as_slice()
     }
-}
 
+    pub fn params_desc(binding: u32) -> wgpu::BindGroupLayoutEntry {
+        return wgpu::BindGroupLayoutEntry {
+            binding,
+            visibility: wgpu::ShaderStages::COMPUTE,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: wgpu::BufferSize::new(
+                    (Params::new().to_slice().len() * mem::size_of::<f32>()) as _,
+                ),
+            },
+            count: None,
+        };
+    }
+
+    pub fn attr_desc(&self, binding: u32) -> wgpu::BindGroupLayoutEntry {
+        return wgpu::BindGroupLayoutEntry {
+            binding: 3,
+            visibility: wgpu::ShaderStages::COMPUTE,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: wgpu::BufferSize::new(
+                    (self.attraction_matrix.len() * mem::size_of::<f32>()) as _,
+                ),
+            },
+            count: None,
+        };
+    }
+
+    // pub fn buff_desc(params_slice: &[f32]) -> wgpu::util::BufferInitDescriptor {
+    //
+    //
+    // }
+}

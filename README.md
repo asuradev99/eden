@@ -6,19 +6,23 @@ Currently WIP
 ## todo list
 - GUI 
     - Switch between different shaders (coloumb's, )
-    - Add / edit position of particles in shader mode
-    - Force Matrix (3)
-    - Scrolling issue
-  
-- Camera
-   - Auto-zoom
+    - Add / edit / view position of particles in shader mode
+    - Sync GUI and simulation start
 
 
 - Simulation
-  - Collisions or repelling force (possible gas simulation) (2)
-  - Implement particle types w/ coloring (3)
   - Barnes-Hut or Spatial Sorting Algorithm (4)
   - Lighting effects
-  - Display each particle as a shape / circle (1)
+  - Atomic simulations / Bonds
+  - Artificial Chemistry simulation
+  - Wall atoms
+
+
+
+- Code
+  - Move bind groups to separate file
+  - Make working version on web with WASM
+
+  - 
 
 
